@@ -258,6 +258,10 @@ npx wp-env start
 # Run unit tests
 composer run test
 
+# Run integration tests (boots a real WP via wp-env tests-cli)
+npx wp-env run tests-cli --env-cwd=wp-content/plugins/AB-testing-wordpress \
+  ./vendor/bin/phpunit -c phpunit-integration.xml.dist
+
 # Lint (WordPress Coding Standards)
 composer run lint
 

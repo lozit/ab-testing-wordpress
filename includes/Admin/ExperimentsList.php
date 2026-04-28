@@ -44,10 +44,12 @@ final class ExperimentsList {
 		// phpcs:enable WordPress.Security.NonceVerification.Recommended
 		$show_all = ( 'all' === $show );
 
+		$csv_url = CsvExport::download_url( $from, $to, $show );
 		?>
 		<div class="wrap abtest-wrap">
 			<h1 class="wp-heading-inline"><?php esc_html_e( 'A/B Tests', 'ab-testing-wordpress' ); ?></h1>
 			<a href="<?php echo esc_url( $new_url ); ?>" class="page-title-action"><?php esc_html_e( 'Add new', 'ab-testing-wordpress' ); ?></a>
+			<a href="<?php echo esc_url( $csv_url ); ?>" class="page-title-action" title="<?php esc_attr_e( 'Download all visible experiments as CSV (respects current filters).', 'ab-testing-wordpress' ); ?>">⬇ <?php esc_html_e( 'Export CSV', 'ab-testing-wordpress' ); ?></a>
 
 			<?php self::render_date_filter( $from, $to ); ?>
 

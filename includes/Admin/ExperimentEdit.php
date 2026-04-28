@@ -206,6 +206,27 @@ final class ExperimentEdit {
 							<?php endif; ?>
 						</td>
 					</tr>
+					<?php
+					$schedule_start = $is_new ? '' : (string) get_post_meta( $experiment_id, Experiment::META_SCHEDULE_START_AT, true );
+					$schedule_end   = $is_new ? '' : (string) get_post_meta( $experiment_id, Experiment::META_SCHEDULE_END_AT, true );
+					// datetime-local needs YYYY-MM-DDTHH:MM (no seconds, no timezone).
+					$start_input    = '' !== $schedule_start ? str_replace( ' ', 'T', substr( $schedule_start, 0, 16 ) ) : '';
+					$end_input      = '' !== $schedule_end ? str_replace( ' ', 'T', substr( $schedule_end, 0, 16 ) ) : '';
+					?>
+					<tr>
+						<th scope="row"><label for="abtest-schedule-start"><?php esc_html_e( 'Auto-start at (optional)', 'ab-testing-wordpress' ); ?></label></th>
+						<td>
+							<input type="datetime-local" id="abtest-schedule-start" name="schedule_start_at" value="<?php echo esc_attr( $start_input ); ?>">
+							<p class="description"><?php esc_html_e( 'When this date passes, a Draft experiment auto-transitions to Running (via WP-Cron, hourly check). Cleared after firing. Skipped if another experiment is already running on the same URL.', 'ab-testing-wordpress' ); ?></p>
+						</td>
+					</tr>
+					<tr>
+						<th scope="row"><label for="abtest-schedule-end"><?php esc_html_e( 'Auto-end at (optional)', 'ab-testing-wordpress' ); ?></label></th>
+						<td>
+							<input type="datetime-local" id="abtest-schedule-end" name="schedule_end_at" value="<?php echo esc_attr( $end_input ); ?>">
+							<p class="description"><?php esc_html_e( 'When this date passes, a Running experiment auto-transitions to Ended.', 'ab-testing-wordpress' ); ?></p>
+						</td>
+					</tr>
 				</table>
 
 				<?php

@@ -37,6 +37,7 @@ final class Admin {
 		add_action( 'admin_post_abtest_import_html', [ HtmlImport::class, 'handle_upload' ] );
 		add_action( 'admin_post_abtest_save_settings', [ Settings::class, 'handle_save' ] );
 		add_action( 'admin_post_abtest_test_webhook', [ Settings::class, 'handle_test_webhook' ] );
+		add_action( 'admin_post_abtest_export_csv', [ CsvExport::class, 'handle' ] );
 		add_action( 'admin_enqueue_scripts', [ $this, 'enqueue_assets' ] );
 	}
 
@@ -243,6 +244,28 @@ final class Admin {
 			if ( $variant_id > 0 ) {
 				\Abtest\Plugin::ensure_private_status( $variant_id );
 			}
+		}
+
+		// Persist optional schedule_start_at / schedule_end_at (datetime-local format).
+		$raw_start = isset( $_POST['schedule_start_at'] ) ? sanitize_text_field( wp_unslash( $_POST['schedule_start_at'] ) ) : '';
+		$raw_end   = isset( $_POST['schedule_end_at'] ) ? sanitize_text_field( wp_unslash( $_POST['schedule_end_at'] ) ) : '';
+		$norm_dt   = static function ( string $v ): string {
+			if ( '' === $v ) { return ''; }
+			// Accept both "YYYY-MM-DDTHH:MM" (datetime-local) and "YYYY-MM-DD HH:MM:SS".
+			$ts = strtotime( str_replace( 'T', ' ', $v ) );
+			return false === $ts ? '' : gmdate( 'Y-m-d H:i:s', $ts );
+		};
+		$start_dt = $norm_dt( $raw_start );
+		$end_dt   = $norm_dt( $raw_end );
+		if ( '' !== $start_dt ) {
+			update_post_meta( $id, Experiment::META_SCHEDULE_START_AT, $start_dt );
+		} else {
+			delete_post_meta( $id, Experiment::META_SCHEDULE_START_AT );
+		}
+		if ( '' !== $end_dt ) {
+			update_post_meta( $id, Experiment::META_SCHEDULE_END_AT, $end_dt );
+		} else {
+			delete_post_meta( $id, Experiment::META_SCHEDULE_END_AT );
 		}
 
 		// Persist URL-level tracking scripts (shared across every experiment on this URL).

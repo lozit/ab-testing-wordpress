@@ -69,8 +69,8 @@
 - [x] Partagé entre toutes les expériences sur l'URL
 
 ### Workflow / UX
-- [ ] Export CSV des stats par URL ou par expérience
-- [ ] Scheduling auto (start/end à date donnée via WP-Cron)
+- [x] **Export CSV** des experiments + stats — bouton dans la liste, respecte filtres date + show, BOM UTF-8 (Excel)
+- [x] **Scheduling auto** via WP-Cron (hourly tick) — `_abtest_schedule_start_at` / `_abtest_schedule_end_at` meta + UI datetime-local + soft-conflict skip
 - [x] **Confidence interval** 95% (Wald) affiché à côté du lift
 - [ ] Preview HTML avant upload
 - [ ] Drag & drop file picker
@@ -89,10 +89,12 @@
 - [ ] Multi-langue (WPML / Polylang)
 
 ### Qualité technique
-- [ ] Tests d'intégration wp-phpunit (Router, Tracker, REST)
-- [ ] CI GitHub Actions (lint + tests)
+- [x] **Tests d'intégration wp-phpunit** — bootstrap + wp-tests-config.php, 10 tests (SchemaTest, ExperimentTest, SchedulerTest), runs in wp-env tests-cli
+- [x] **CI GitHub Actions** — `.github/workflows/ci.yml` avec matrix PHP 8.1/8.2/8.3 (syntax check + PHPUnit gating), PHPCS en continue-on-error, concurrency cancel-in-progress, badges README
+- [x] **Release workflow** + **Dependabot** (composer/npm/actions weekly)
 - [x] **Cache bypass complet** : headers no-store universels + WP Rocket + LiteSpeed + Kinsta detection (notice avec lien Cache Bypass MyKinsta) + doc readme.txt
 - [ ] Refactor `Stats::for_experiment` → batch query (1 SQL pour N experiments)
+- [ ] Bump WP-env vers 6.9 (et dropper le pin `~6.5.0` sur wp-phpunit)
 
 ### RGPD / conformité
 - [ ] Option "respecter consentement" si plugin de consentement détecté

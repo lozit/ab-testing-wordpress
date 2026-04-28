@@ -15,14 +15,16 @@ final class Experiment {
 
 	public const POST_TYPE = 'ab_experiment';
 
-	public const META_TEST_URL    = '_abtest_test_url';
-	public const META_CONTROL_ID  = '_abtest_control_id';
-	public const META_VARIANT_ID  = '_abtest_variant_id';
-	public const META_GOAL_TYPE   = '_abtest_goal_type';
-	public const META_GOAL_VALUE  = '_abtest_goal_value';
-	public const META_STATUS      = '_abtest_status';
-	public const META_STARTED_AT  = '_abtest_started_at';
-	public const META_ENDED_AT    = '_abtest_ended_at';
+	public const META_TEST_URL          = '_abtest_test_url';
+	public const META_CONTROL_ID        = '_abtest_control_id';
+	public const META_VARIANT_ID        = '_abtest_variant_id';
+	public const META_GOAL_TYPE         = '_abtest_goal_type';
+	public const META_GOAL_VALUE        = '_abtest_goal_value';
+	public const META_STATUS            = '_abtest_status';
+	public const META_STARTED_AT        = '_abtest_started_at';
+	public const META_ENDED_AT          = '_abtest_ended_at';
+	public const META_SCHEDULE_START_AT = '_abtest_schedule_start_at';
+	public const META_SCHEDULE_END_AT   = '_abtest_schedule_end_at';
 
 	public const STATUS_DRAFT   = 'draft';
 	public const STATUS_RUNNING = 'running';
@@ -61,6 +63,8 @@ final class Experiment {
 		register_post_meta( self::POST_TYPE, self::META_STATUS, [ 'type' => 'string', 'single' => true, 'show_in_rest' => false ] );
 		register_post_meta( self::POST_TYPE, self::META_STARTED_AT, [ 'type' => 'string', 'single' => true, 'show_in_rest' => false ] );
 		register_post_meta( self::POST_TYPE, self::META_ENDED_AT, [ 'type' => 'string', 'single' => true, 'show_in_rest' => false ] );
+		register_post_meta( self::POST_TYPE, self::META_SCHEDULE_START_AT, [ 'type' => 'string', 'single' => true, 'show_in_rest' => false ] );
+		register_post_meta( self::POST_TYPE, self::META_SCHEDULE_END_AT, [ 'type' => 'string', 'single' => true, 'show_in_rest' => false ] );
 	}
 
 	/**
