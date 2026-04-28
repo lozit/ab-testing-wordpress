@@ -1,0 +1,90 @@
+name: Release
+
+# Triggered when a version tag is pushed (e.g. `git tag v0.4.0 && git push origin v0.4.0`).
+# Builds a clean WordPress-ready zip and attaches it to a GitHub Release with auto-generated notes.
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+permissions:
+  contents: write   # needed to create the GitHub Release
+
+jobs:
+  release:
+    name: Build & publish release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout (full history for changelog generation)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Extract version from tag
+        id: version
+        run: |
+          TAG="${GITHUB_REF#refs/tags/}"        # e.g. v0.4.0
+          VERSION="${TAG#v}"                     # e.g. 0.4.0
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Releasing tag=$TAG version=$VERSION"
+
+      - name: Sanity check — plugin header version matches tag
+        run: |
+          HEADER_VERSION=$(grep -E "^\s\*\s+Version:\s+" ab-testing-wordpress.php | awk '{print $3}' | tr -d '\r\n ')
+          if [ "$HEADER_VERSION" != "${{ steps.version.outputs.version }}" ]; then
+            echo "::error::Plugin header version ($HEADER_VERSION) does not match tag (${{ steps.version.outputs.version }})."
+            echo "Bump 'Version:' in ab-testing-wordpress.php to ${{ steps.version.outputs.version }} and re-tag."
+            exit 1
+          fi
+          echo "Plugin header version matches: $HEADER_VERSION ✓"
+
+      - name: Build distribution folder
+        run: |
+          mkdir -p build/ab-testing-wordpress
+          rsync -av \
+            --exclude='.git' \
+            --exclude='.github' \
+            --exclude='.claude' \
+            --exclude='node_modules' \
+            --exclude='vendor' \
+            --exclude='tests' \
+            --exclude='tasks' \
+            --exclude='build' \
+            --exclude='dist' \
+            --exclude='*.lock' \
+            --exclude='*.dist' \
+            --exclude='package.json' \
+            --exclude='package-lock.json' \
+            --exclude='composer.json' \
+            --exclude='composer.lock' \
+            --exclude='CLAUDE.md' \
+            --exclude='.wp-env.json' \
+            --exclude='.gitignore' \
+            --exclude='.phpunit.result.cache' \
+            --exclude='*.zip' \
+            --exclude='test*.html' \
+            --exclude='/tools/' \
+            ./ build/ab-testing-wordpress/
+          echo "--- Bundle contents (top level) ---"
+          ls -la build/ab-testing-wordpress/
+          echo "--- File count ---"
+          find build/ab-testing-wordpress/ -type f | wc -l
+
+      - name: Create zip
+        run: |
+          cd build
+          zip -r "../ab-testing-wordpress-${{ steps.version.outputs.version }}.zip" ab-testing-wordpress
+          cd ..
+          ls -lh ab-testing-wordpress-${{ steps.version.outputs.version }}.zip
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          name: ${{ steps.version.outputs.tag }}
+          generate_release_notes: true
+          fail_on_unmatched_files: true
+          files: |
+            ab-testing-wordpress-${{ steps.version.outputs.version }}.zip

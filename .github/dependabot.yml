@@ -1,0 +1,44 @@
+version: 2
+
+# Keep deps fresh without spending mental energy on it.
+# Each ecosystem opens a PR when an update is available; CI runs against the bumped version.
+
+updates:
+  # PHP / Composer dev dependencies (phpunit, wpcs, etc.).
+  - package-ecosystem: "composer"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "chore(deps)"
+      include: "scope"
+    labels:
+      - "dependencies"
+      - "php"
+
+  # JavaScript / npm (currently just @wordpress/env).
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "chore(deps)"
+      include: "scope"
+    labels:
+      - "dependencies"
+      - "javascript"
+
+  # GitHub Actions versions (actions/checkout, setup-php, etc.) — slower cadence.
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "chore(deps)"
+      include: "scope"
+    labels:
+      - "dependencies"
+      - "ci"
