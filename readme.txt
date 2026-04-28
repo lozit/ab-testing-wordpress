@@ -4,7 +4,7 @@ Tags: ab testing, split testing, conversion, analytics
 Requires at least: 6.0
 Tested up to: 6.5
 Requires PHP: 8.1
-Stable tag: 0.1.0
+Stable tag: 0.4.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -96,6 +96,20 @@ No. Logged-in users with `edit_posts` capability are bypassed and always see the
 v1 only swaps the entire page (the variant must be a separate post). Block-level and product-level testing are on the roadmap.
 
 == Changelog ==
+
+= 0.4.0 =
+* URL-decoupled experiments — `test_url` independent from variant pages.
+* State machine (DRAFT → RUNNING → PAUSED/ENDED) with Resume = duplicate semantics.
+* Baseline mode (Variant B optional) and auto-downgrade on URL conflict.
+* Replace running atomic swap action.
+* HTML import → Blank Canvas template (zero WP wrapper).
+* Per-URL tracking scripts (Adwords, FB Pixel, Lemlist, etc.).
+* Cache bypass (universal Cache-Control headers + WP Rocket + LiteSpeed + Kinsta detection).
+* Google Analytics 4 integration (Measurement Protocol).
+* Generic webhook integration (Zapier, Mixpanel, Segment, Slack, n8n) with HMAC.
+* REST API GET /wp-json/abtest/v1/stats with Application Password auth.
+* 95% confidence interval for the lift, date range filter, Chart.js timeline.
+* GitHub Actions CI (PHP 8.1/8.2/8.3 matrix) + release workflow + Dependabot.
 
 = 0.1.0 =
 * Initial MVP — page-level A/B tests, internal tracking, cookie split, basic stats.
