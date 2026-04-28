@@ -1,0 +1,557 @@
+<?php
+/**
+ * Admin UI orchestrator.
+ *
+ * @package Abtest
+ */
+
+declare( strict_types=1 );
+
+namespace Abtest\Admin;
+
+use Abtest\Experiment;
+
+defined( 'ABSPATH' ) || exit;
+
+final class Admin {
+
+	private const MENU_SLUG = 'ab-testing';
+	private const NONCE     = 'abtest_save_experiment';
+
+	private static ?self $instance = null;
+
+	public static function instance(): self {
+		if ( null === self::$instance ) {
+			self::$instance = new self();
+		}
+		return self::$instance;
+	}
+
+	public function register(): void {
+		add_action( 'admin_menu', [ $this, 'register_menu' ] );
+		add_action( 'admin_post_abtest_save_experiment', [ $this, 'handle_save' ] );
+		add_action( 'admin_post_abtest_set_status', [ $this, 'handle_status_change' ] );
+		add_action( 'admin_post_abtest_replace_running', [ $this, 'handle_replace_running' ] );
+		add_action( 'admin_post_abtest_resume', [ $this, 'handle_resume' ] );
+		add_action( 'admin_post_abtest_delete_experiment', [ $this, 'handle_delete' ] );
+		add_action( 'admin_post_abtest_import_html', [ HtmlImport::class, 'handle_upload' ] );
+		add_action( 'admin_post_abtest_save_settings', [ Settings::class, 'handle_save' ] );
+		add_action( 'admin_post_abtest_test_webhook', [ Settings::class, 'handle_test_webhook' ] );
+		add_action( 'admin_enqueue_scripts', [ $this, 'enqueue_assets' ] );
+	}
+
+	public function register_menu(): void {
+		add_menu_page(
+			__( 'A/B Testing', 'ab-testing-wordpress' ),
+			__( 'A/B Tests', 'ab-testing-wordpress' ),
+			'manage_options',
+			self::MENU_SLUG,
+			[ $this, 'render' ],
+			'dashicons-chart-bar',
+			58
+		);
+		add_submenu_page(
+			self::MENU_SLUG,
+			__( 'Import HTML', 'ab-testing-wordpress' ),
+			__( 'Import HTML', 'ab-testing-wordpress' ),
+			'manage_options',
+			self::MENU_SLUG . '&action=import',
+			'__return_null'
+		);
+		add_submenu_page(
+			self::MENU_SLUG,
+			__( 'Settings', 'ab-testing-wordpress' ),
+			__( 'Settings', 'ab-testing-wordpress' ),
+			'manage_options',
+			self::MENU_SLUG . '&action=settings',
+			'__return_null'
+		);
+	}
+
+	public function enqueue_assets( string $hook ): void {
+		if ( false === strpos( $hook, self::MENU_SLUG ) ) {
+			return;
+		}
+		wp_enqueue_style(
+			'abtest-admin',
+			ABTEST_PLUGIN_URL . 'assets/css/admin.css',
+			[],
+			ABTEST_VERSION
+		);
+
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		$action = isset( $_GET['action'] ) ? sanitize_key( wp_unslash( $_GET['action'] ) ) : 'list';
+
+		// Chart.js + our chart bootstrap, only on the main list view.
+		if ( 'list' === $action ) {
+			wp_enqueue_script(
+				'abtest-chartjs',
+				'https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js',
+				[],
+				'4.4.1',
+				true
+			);
+			wp_enqueue_script(
+				'abtest-url-charts',
+				ABTEST_PLUGIN_URL . 'assets/js/url-charts.js',
+				[ 'abtest-chartjs' ],
+				ABTEST_VERSION,
+				true
+			);
+		}
+
+		// URL-scripts editor JS only on the experiment edit screen.
+		if ( in_array( $action, [ 'new', 'edit' ], true ) ) {
+			wp_enqueue_script(
+				'abtest-url-scripts-editor',
+				ABTEST_PLUGIN_URL . 'assets/js/url-scripts-editor.js',
+				[],
+				ABTEST_VERSION,
+				true
+			);
+		}
+
+		// Webhooks editor JS only on the settings screen.
+		if ( 'settings' === $action ) {
+			wp_enqueue_script(
+				'abtest-webhooks-editor',
+				ABTEST_PLUGIN_URL . 'assets/js/webhooks-editor.js',
+				[],
+				ABTEST_VERSION,
+				true
+			);
+		}
+	}
+
+	public function render(): void {
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_die( esc_html__( 'You are not allowed to access this page.', 'ab-testing-wordpress' ), 403 );
+		}
+
+		$action = isset( $_GET['action'] ) ? sanitize_key( wp_unslash( $_GET['action'] ) ) : 'list';
+
+		switch ( $action ) {
+			case 'new':
+			case 'edit':
+				ExperimentEdit::render( $this->current_experiment_id() );
+				break;
+			case 'import':
+				HtmlImport::render();
+				break;
+			case 'settings':
+				Settings::render();
+				break;
+			case 'list':
+			default:
+				ExperimentsList::render();
+				break;
+		}
+	}
+
+	public function handle_save(): void {
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_die( esc_html__( 'Forbidden', 'ab-testing-wordpress' ), 403 );
+		}
+		check_admin_referer( self::NONCE, '_abtest_nonce' );
+
+		$id          = isset( $_POST['experiment_id'] ) ? absint( wp_unslash( $_POST['experiment_id'] ) ) : 0;
+		$title       = isset( $_POST['title'] ) ? sanitize_text_field( wp_unslash( $_POST['title'] ) ) : '';
+		$test_url    = isset( $_POST['test_url'] ) ? Experiment::normalize_path( sanitize_text_field( wp_unslash( $_POST['test_url'] ) ) ) : '';
+		$control_id  = isset( $_POST['control_id'] ) ? absint( wp_unslash( $_POST['control_id'] ) ) : 0;
+		$variant_id  = isset( $_POST['variant_id'] ) ? absint( wp_unslash( $_POST['variant_id'] ) ) : 0;
+		$goal_type   = isset( $_POST['goal_type'] ) ? sanitize_key( wp_unslash( $_POST['goal_type'] ) ) : Experiment::GOAL_URL;
+		$goal_value  = isset( $_POST['goal_value'] ) ? sanitize_text_field( wp_unslash( $_POST['goal_value'] ) ) : '';
+		$status      = isset( $_POST['status'] ) ? sanitize_key( wp_unslash( $_POST['status'] ) ) : Experiment::STATUS_DRAFT;
+
+		$errors = $this->validate( $title, $test_url, $control_id, $variant_id, $goal_type, $goal_value, $status, $id );
+		if ( ! empty( $errors ) ) {
+			$this->redirect_with_notice( 'error', implode( ' | ', $errors ), $id ? [ 'action' => 'edit', 'experiment' => $id ] : [ 'action' => 'new' ] );
+		}
+
+		$post_data = [
+			'post_type'   => Experiment::POST_TYPE,
+			'post_title'  => $title,
+			'post_status' => 'publish',
+		];
+
+		if ( $id > 0 ) {
+			$post_data['ID'] = $id;
+			wp_update_post( $post_data, true );
+		} else {
+			$id = (int) wp_insert_post( $post_data, true );
+		}
+
+		if ( ! $id || $id < 1 ) {
+			$this->redirect_with_notice( 'error', __( 'Failed to save the experiment.', 'ab-testing-wordpress' ), [ 'action' => 'new' ] );
+		}
+
+		$prev_status = $id > 0 ? Experiment::get_status( $id ) : Experiment::STATUS_DRAFT;
+		// New posts always start in DRAFT before the user's chosen status applies.
+		$baseline_for_transition = ( '' === $prev_status ) ? Experiment::STATUS_DRAFT : $prev_status;
+
+		update_post_meta( $id, Experiment::META_TEST_URL, $test_url );
+		update_post_meta( $id, Experiment::META_CONTROL_ID, $control_id );
+		update_post_meta( $id, Experiment::META_VARIANT_ID, $variant_id );
+		update_post_meta( $id, Experiment::META_GOAL_TYPE, $goal_type );
+		update_post_meta( $id, Experiment::META_GOAL_VALUE, $goal_value );
+
+		// Enforce state machine on the requested status. If the requested transition
+		// isn't allowed (e.g. PAUSED → RUNNING — that's the Resume action), fall back
+		// to the previous status with a warning.
+		$effective_status   = $status;
+		$transition_message = '';
+		if ( ! Experiment::is_transition_allowed( $baseline_for_transition, $status ) ) {
+			$effective_status   = $baseline_for_transition;
+			$transition_message = sprintf(
+				/* translators: 1: from status, 2: to status */
+				__( 'Status kept at %1$s — transition to %2$s is not allowed. Use the Resume action for paused experiments.', 'ab-testing-wordpress' ),
+				$baseline_for_transition,
+				$status
+			);
+		}
+
+		// Soft-downgrade: if requested status is `running` but another experiment is already
+		// running on the same URL, save as `draft` instead and surface a warning notice.
+		$conflict_message = '';
+		if ( Experiment::STATUS_RUNNING === $effective_status ) {
+			$conflict = Experiment::find_running_for_url( $test_url );
+			if ( $conflict && (int) $conflict->ID !== $id ) {
+				$effective_status = Experiment::STATUS_DRAFT;
+				$conflict_message = sprintf(
+					/* translators: %s: title of the running experiment that owns the URL */
+					__( 'Saved as Draft because "%s" is already running on this URL. Pause that experiment first to start this one.', 'ab-testing-wordpress' ),
+					get_the_title( $conflict )
+				);
+			}
+		}
+		update_post_meta( $id, Experiment::META_STATUS, $effective_status );
+
+		if ( Experiment::STATUS_RUNNING === $effective_status && Experiment::STATUS_RUNNING !== $prev_status ) {
+			update_post_meta( $id, Experiment::META_STARTED_AT, current_time( 'mysql', true ) );
+		}
+		// Lock the run-period end date the FIRST time the experiment leaves RUNNING.
+		if ( in_array( $effective_status, [ Experiment::STATUS_PAUSED, Experiment::STATUS_ENDED ], true ) ) {
+			$existing_end = (string) get_post_meta( $id, Experiment::META_ENDED_AT, true );
+			if ( '' === $existing_end ) {
+				update_post_meta( $id, Experiment::META_ENDED_AT, current_time( 'mysql', true ) );
+			}
+		}
+
+		// When the experiment is running, hide the variant pages from public view.
+		if ( Experiment::STATUS_RUNNING === $effective_status ) {
+			\Abtest\Plugin::ensure_private_status( $control_id );
+			if ( $variant_id > 0 ) {
+				\Abtest\Plugin::ensure_private_status( $variant_id );
+			}
+		}
+
+		// Persist URL-level tracking scripts (shared across every experiment on this URL).
+		if ( '' !== $test_url ) {
+			$raw_scripts = isset( $_POST['url_scripts'] ) && is_array( $_POST['url_scripts'] ) ? wp_unslash( $_POST['url_scripts'] ) : []; // phpcs:ignore WordPress.Security.ValidatedSanitizedInput
+			$entries     = [];
+			foreach ( $raw_scripts as $row ) {
+				if ( ! is_array( $row ) ) {
+					continue;
+				}
+				$position = isset( $row['position'] ) ? sanitize_key( (string) $row['position'] ) : '';
+				$code     = isset( $row['code'] ) ? (string) $row['code'] : '';
+				$entries[] = [ 'position' => $position, 'code' => $code ];
+			}
+			\Abtest\UrlScripts::set( $test_url, $entries );
+		}
+
+		if ( '' !== $transition_message ) {
+			$this->redirect_with_notice( 'warning', $transition_message, [ 'action' => 'edit', 'experiment' => $id ] );
+		}
+		if ( '' !== $conflict_message ) {
+			$this->redirect_with_notice( 'warning', $conflict_message, [ 'action' => 'edit', 'experiment' => $id ] );
+		}
+		$this->redirect_with_notice( 'success', __( 'Experiment saved.', 'ab-testing-wordpress' ), [ 'action' => 'edit', 'experiment' => $id ] );
+	}
+
+	public function handle_status_change(): void {
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_die( esc_html__( 'Forbidden', 'ab-testing-wordpress' ), 403 );
+		}
+		check_admin_referer( 'abtest_status_change' );
+
+		$id     = isset( $_GET['experiment'] ) ? absint( wp_unslash( $_GET['experiment'] ) ) : 0;
+		$status = isset( $_GET['status'] ) ? sanitize_key( wp_unslash( $_GET['status'] ) ) : '';
+		$valid  = [ Experiment::STATUS_RUNNING, Experiment::STATUS_PAUSED, Experiment::STATUS_ENDED, Experiment::STATUS_DRAFT ];
+
+		if ( $id <= 0 || ! in_array( $status, $valid, true ) ) {
+			$this->redirect_with_notice( 'error', __( 'Invalid status change.', 'ab-testing-wordpress' ) );
+		}
+
+		$prev = Experiment::get_status( $id );
+
+		// Enforce state machine: refuse invalid transitions outright. This prevents
+		// e.g. PAUSED → RUNNING via the dropdown (which must go through Resume to keep dates clean)
+		// or any transition out of ENDED.
+		if ( ! Experiment::is_transition_allowed( $prev, $status ) ) {
+			$this->redirect_with_notice(
+				'warning',
+				sprintf(
+					/* translators: 1: from status, 2: to status */
+					__( 'Transition not allowed: %1$s → %2$s. Use the Resume action to re-run a paused experiment.', 'ab-testing-wordpress' ),
+					$prev,
+					$status
+				)
+			);
+		}
+
+		// Soft-block start if another experiment already running on the same URL.
+		if ( Experiment::STATUS_RUNNING === $status ) {
+			$test_url = Experiment::get_test_url( $id );
+			$conflict = '' !== $test_url ? Experiment::find_running_for_url( $test_url ) : null;
+			if ( $conflict && (int) $conflict->ID !== $id ) {
+				$this->redirect_with_notice(
+					'warning',
+					sprintf(
+						/* translators: %s: title of the experiment that already runs on the same URL */
+						__( 'Cannot start: "%s" is already running on this URL. Pause it first.', 'ab-testing-wordpress' ),
+						get_the_title( $conflict )
+					)
+				);
+			}
+		}
+
+		update_post_meta( $id, Experiment::META_STATUS, $status );
+
+		if ( Experiment::STATUS_RUNNING === $status && Experiment::STATUS_RUNNING !== $prev ) {
+			update_post_meta( $id, Experiment::META_STARTED_AT, current_time( 'mysql', true ) );
+			\Abtest\Plugin::ensure_private_status( Experiment::get_control_id( $id ) );
+			$variant_id = Experiment::get_variant_id( $id );
+			if ( $variant_id > 0 ) {
+				\Abtest\Plugin::ensure_private_status( $variant_id );
+			}
+		}
+
+		// Lock the run-period end as soon as the experiment leaves RUNNING.
+		// Only set ended_at the FIRST time (don't overwrite a paused-then-ended trail).
+		if ( in_array( $status, [ Experiment::STATUS_PAUSED, Experiment::STATUS_ENDED ], true ) ) {
+			$existing_end = (string) get_post_meta( $id, Experiment::META_ENDED_AT, true );
+			if ( '' === $existing_end ) {
+				update_post_meta( $id, Experiment::META_ENDED_AT, current_time( 'mysql', true ) );
+			}
+		}
+
+		$this->redirect_with_notice( 'success', __( 'Status updated.', 'ab-testing-wordpress' ) );
+	}
+
+	/**
+	 * Resume a PAUSED experiment by creating a duplicate in RUNNING state.
+	 * The original keeps its locked started_at / ended_at (its single run period).
+	 * Each future resume creates yet another duplicate, so each row = one continuous run.
+	 */
+	public function handle_resume(): void {
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_die( esc_html__( 'Forbidden', 'ab-testing-wordpress' ), 403 );
+		}
+		check_admin_referer( 'abtest_resume' );
+
+		$id = isset( $_GET['experiment'] ) ? absint( wp_unslash( $_GET['experiment'] ) ) : 0;
+		if ( $id <= 0 || ! get_post( $id ) ) {
+			$this->redirect_with_notice( 'error', __( 'Invalid experiment.', 'ab-testing-wordpress' ) );
+		}
+
+		$current_status = Experiment::get_status( $id );
+		if ( Experiment::STATUS_PAUSED !== $current_status ) {
+			$this->redirect_with_notice(
+				'warning',
+				__( 'Resume is only available for paused experiments.', 'ab-testing-wordpress' )
+			);
+		}
+
+		$new_id = \Abtest\Plugin::duplicate_for_resume( $id );
+		if ( is_wp_error( $new_id ) ) {
+			$this->redirect_with_notice( 'error', $new_id->get_error_message() );
+		}
+
+		$status_after = Experiment::get_status( (int) $new_id );
+		if ( Experiment::STATUS_RUNNING === $status_after ) {
+			$this->redirect_with_notice(
+				'success',
+				sprintf(
+					/* translators: %d: new experiment ID */
+					__( 'Resumed as a new experiment (#%d, now running). The original keeps its locked dates.', 'ab-testing-wordpress' ),
+					(int) $new_id
+				)
+			);
+		}
+		// Status downgraded to draft because of URL conflict.
+		$this->redirect_with_notice(
+			'warning',
+			sprintf(
+				/* translators: %d: new experiment ID */
+				__( 'Created a new draft experiment (#%d) because another one is already running on this URL.', 'ab-testing-wordpress' ),
+				(int) $new_id
+			)
+		);
+	}
+
+	/**
+	 * Atomic swap on a URL: pause the experiment currently running on this URL
+	 * (if any), then start the requested one. Useful when the user has prepared
+	 * a new draft variant and wants to switch in one click.
+	 */
+	public function handle_replace_running(): void {
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_die( esc_html__( 'Forbidden', 'ab-testing-wordpress' ), 403 );
+		}
+		check_admin_referer( 'abtest_replace_running' );
+
+		$id = isset( $_GET['experiment'] ) ? absint( wp_unslash( $_GET['experiment'] ) ) : 0;
+		if ( $id <= 0 || ! get_post( $id ) ) {
+			$this->redirect_with_notice( 'error', __( 'Invalid experiment.', 'ab-testing-wordpress' ) );
+		}
+
+		$test_url = Experiment::get_test_url( $id );
+		if ( '' === $test_url ) {
+			$this->redirect_with_notice( 'error', __( 'This experiment has no test URL.', 'ab-testing-wordpress' ) );
+		}
+
+		$paused_title = '';
+		$running      = Experiment::find_running_for_url( $test_url );
+		if ( $running && (int) $running->ID !== $id ) {
+			update_post_meta( (int) $running->ID, Experiment::META_STATUS, Experiment::STATUS_PAUSED );
+			$paused_title = (string) get_the_title( $running );
+		}
+
+		// Now start the requested one.
+		update_post_meta( $id, Experiment::META_STATUS, Experiment::STATUS_RUNNING );
+		update_post_meta( $id, Experiment::META_STARTED_AT, current_time( 'mysql', true ) );
+		\Abtest\Plugin::ensure_private_status( Experiment::get_control_id( $id ) );
+		$variant_id = Experiment::get_variant_id( $id );
+		if ( $variant_id > 0 ) {
+			\Abtest\Plugin::ensure_private_status( $variant_id );
+		}
+
+		if ( '' !== $paused_title ) {
+			$this->redirect_with_notice(
+				'success',
+				sprintf(
+					/* translators: 1: paused experiment title, 2: started experiment title */
+					__( 'Replaced "%1$s" (paused) with "%2$s" (now running).', 'ab-testing-wordpress' ),
+					$paused_title,
+					(string) get_the_title( $id )
+				)
+			);
+		}
+		$this->redirect_with_notice(
+			'success',
+			sprintf(
+				/* translators: %s: started experiment title */
+				__( '"%s" is now running.', 'ab-testing-wordpress' ),
+				(string) get_the_title( $id )
+			)
+		);
+	}
+
+	public function handle_delete(): void {
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_die( esc_html__( 'Forbidden', 'ab-testing-wordpress' ), 403 );
+		}
+		check_admin_referer( 'abtest_delete_experiment' );
+
+		$id = isset( $_GET['experiment'] ) ? absint( wp_unslash( $_GET['experiment'] ) ) : 0;
+		if ( $id > 0 ) {
+			wp_delete_post( $id, true );
+		}
+		$this->redirect_with_notice( 'success', __( 'Experiment deleted.', 'ab-testing-wordpress' ) );
+	}
+
+	public static function is_valid_test_url( string $path ): bool {
+		// Must start with /, end with /, contain only [a-z0-9_-/], with no double slashes inside.
+		if ( ! preg_match( '#^/(?:[a-z0-9_\-]+/)+$#', $path ) ) {
+			return '/' === $path; // root path is allowed but unusual
+		}
+		return true;
+	}
+
+	private function validate( string $title, string $test_url, int $control_id, int $variant_id, string $goal_type, string $goal_value, string $status, int $editing_id = 0 ): array {
+		$errors = [];
+		if ( '' === $title ) {
+			$errors[] = __( 'Title is required.', 'ab-testing-wordpress' );
+		}
+		if ( '' === $test_url ) {
+			$errors[] = __( 'Test URL is required.', 'ab-testing-wordpress' );
+		} elseif ( ! self::is_valid_test_url( $test_url ) ) {
+			$errors[] = __( 'Test URL must look like /path/ (lowercase, letters, numbers, hyphens, underscores).', 'ab-testing-wordpress' );
+		}
+		// Note: URL uniqueness against another running experiment is NOT a hard error here.
+		// `handle_save` and `handle_status_change` softly downgrade the requested status to
+		// `draft` instead, so the user's work is never lost on conflict.
+		if ( $control_id <= 0 || ! get_post( $control_id ) ) {
+			$errors[] = __( 'Variant A is required.', 'ab-testing-wordpress' );
+		}
+		// Variant B is optional — leaving it empty puts the experiment in "baseline" mode
+		// where everyone sees Variant A. Only validate if a value was provided.
+		if ( $variant_id > 0 && ! get_post( $variant_id ) ) {
+			$errors[] = __( 'Variant B page does not exist.', 'ab-testing-wordpress' );
+		}
+		if ( $variant_id > 0 && $control_id > 0 && $control_id === $variant_id ) {
+			$errors[] = __( 'Variant A and Variant B must be different posts.', 'ab-testing-wordpress' );
+		}
+		if ( ! in_array( $goal_type, [ Experiment::GOAL_URL, Experiment::GOAL_SELECTOR ], true ) ) {
+			$errors[] = __( 'Invalid goal type.', 'ab-testing-wordpress' );
+		}
+		if ( '' === $goal_value ) {
+			$errors[] = __( 'Goal value is required.', 'ab-testing-wordpress' );
+		}
+		$valid_status = [ Experiment::STATUS_DRAFT, Experiment::STATUS_RUNNING, Experiment::STATUS_PAUSED, Experiment::STATUS_ENDED ];
+		if ( ! in_array( $status, $valid_status, true ) ) {
+			$errors[] = __( 'Invalid status.', 'ab-testing-wordpress' );
+		}
+		return $errors;
+	}
+
+	private function current_experiment_id(): int {
+		if ( ! isset( $_GET['experiment'] ) ) {
+			return 0;
+		}
+		return absint( wp_unslash( $_GET['experiment'] ) );
+	}
+
+	/**
+	 * @param array<string,scalar> $extra_args
+	 */
+	private function redirect_with_notice( string $type, string $message, array $extra_args = [] ): void {
+		$valid_types = [ 'success', 'warning', 'info', 'error' ];
+		$args = array_merge(
+			[
+				'page'            => self::MENU_SLUG,
+				'abtest_notice'   => rawurlencode( $message ),
+				'abtest_notice_t' => in_array( $type, $valid_types, true ) ? $type : 'error',
+			],
+			$extra_args
+		);
+		wp_safe_redirect( add_query_arg( $args, admin_url( 'admin.php' ) ) );
+		exit;
+	}
+
+	public static function maybe_render_notice(): void {
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		if ( ! isset( $_GET['abtest_notice'] ) ) {
+			return;
+		}
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		$message = sanitize_text_field( rawurldecode( wp_unslash( $_GET['abtest_notice'] ) ) );
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		$raw_type = isset( $_GET['abtest_notice_t'] ) ? sanitize_key( wp_unslash( $_GET['abtest_notice_t'] ) ) : 'error';
+		$type     = in_array( $raw_type, [ 'success', 'warning', 'info', 'error' ], true ) ? $raw_type : 'error';
+		printf(
+			'<div class="notice notice-%1$s is-dismissible"><p>%2$s</p></div>',
+			esc_attr( $type ),
+			esc_html( $message )
+		);
+	}
+
+	public static function nonce_action(): string {
+		return self::NONCE;
+	}
+
+	public static function menu_slug(): string {
+		return self::MENU_SLUG;
+	}
+}

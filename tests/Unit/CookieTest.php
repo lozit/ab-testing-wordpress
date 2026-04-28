@@ -1,0 +1,67 @@
+<?php
+/**
+ * Unit tests for Cookie::pick_variant (deterministic split via seed).
+ *
+ * @package Abtest\Tests
+ */
+
+declare( strict_types=1 );
+
+namespace Abtest\Tests\Unit;
+
+use Abtest\Cookie;
+use PHPUnit\Framework\TestCase;
+
+final class CookieTest extends TestCase {
+
+	public function test_picks_only_a_or_b(): void {
+		for ( $i = 0; $i < 100; $i++ ) {
+			$variant = Cookie::pick_variant();
+			$this->assertContains( $variant, [ 'A', 'B' ] );
+		}
+	}
+
+	public function test_seed_makes_assignment_deterministic(): void {
+		$first  = Cookie::pick_variant( 42 );
+		$second = Cookie::pick_variant( 42 );
+		$this->assertSame( $first, $second );
+	}
+
+	public function test_different_seeds_can_yield_different_variants(): void {
+		$samples = [];
+		for ( $seed = 0; $seed < 50; $seed++ ) {
+			$samples[] = Cookie::pick_variant( $seed );
+		}
+		$unique = array_unique( $samples );
+		$this->assertCount( 2, $unique, 'Across many seeds, both A and B should appear.' );
+	}
+
+	public function test_random_split_is_roughly_balanced(): void {
+		$counts = [ 'A' => 0, 'B' => 0 ];
+		for ( $i = 0; $i < 10000; $i++ ) {
+			++$counts[ Cookie::pick_variant() ];
+		}
+		// 50/50 with 10k samples should sit well within [40%, 60%]
+		$ratio = $counts['A'] / 10000;
+		$this->assertGreaterThan( 0.40, $ratio );
+		$this->assertLessThan( 0.60, $ratio );
+	}
+
+	public function test_visitor_hash_is_stable_for_same_request_data(): void {
+		$_SERVER['REMOTE_ADDR']     = '203.0.113.4';
+		$_SERVER['HTTP_USER_AGENT'] = 'Mozilla/5.0';
+		$first  = Cookie::visitor_hash();
+		$second = Cookie::visitor_hash();
+		$this->assertSame( $first, $second );
+		$this->assertSame( 64, strlen( $first ), 'sha256 hex digest is 64 chars.' );
+	}
+
+	public function test_visitor_hash_changes_with_ua(): void {
+		$_SERVER['REMOTE_ADDR']     = '203.0.113.4';
+		$_SERVER['HTTP_USER_AGENT'] = 'Mozilla/5.0';
+		$a = Cookie::visitor_hash();
+		$_SERVER['HTTP_USER_AGENT'] = 'curl/8.0';
+		$b = Cookie::visitor_hash();
+		$this->assertNotSame( $a, $b );
+	}
+}

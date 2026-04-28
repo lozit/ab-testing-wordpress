@@ -1,0 +1,399 @@
+<?php
+/**
+ * Front-end router: detects requests to a test URL and rewrites the WP query
+ * to load the variant post. The visitor's URL bar stays on the test URL.
+ *
+ * @package Abtest
+ */
+
+declare( strict_types=1 );
+
+namespace Abtest;
+
+defined( 'ABSPATH' ) || exit;
+
+final class Router {
+
+	private static ?self $instance = null;
+
+	private ?\WP_Post $current_experiment = null;
+	private string $current_variant       = 'A';
+	private string $current_test_url      = '';
+
+	public static function instance(): self {
+		if ( null === self::$instance ) {
+			self::$instance = new self();
+		}
+		return self::$instance;
+	}
+
+	public function register(): void {
+		// parse_request fires before WP resolves query_vars to a post.
+		// Priority 1 keeps us ahead of most rewriting plugins.
+		add_action( 'parse_request', [ $this, 'maybe_route' ], 1 );
+
+		// Force the canonical link to point at the test URL, not the served post.
+		add_filter( 'get_canonical_url', [ $this, 'filter_canonical_url' ], 10, 2 );
+		add_filter( 'wpseo_canonical', [ $this, 'filter_canonical_string' ] );
+		add_filter( 'rank_math/frontend/canonical', [ $this, 'filter_canonical_string' ] );
+
+		// Don't let WP redirect /promo/ to the served post's permalink.
+		add_filter( 'redirect_canonical', [ $this, 'maybe_block_canonical_redirect' ], 10, 2 );
+	}
+
+	public function maybe_route( \WP $wp ): void {
+		if ( is_admin() ) {
+			return;
+		}
+
+		$path = $this->extract_path_from_request( $wp );
+		if ( '' === $path ) {
+			return;
+		}
+
+		$experiment = Experiment::find_running_for_url( $path );
+		if ( null === $experiment ) {
+			return;
+		}
+
+		$bypass         = $this->should_bypass();
+		$has_underlying = $this->url_resolves_to_public_page( $path );
+		$preview        = $this->read_preview_param();
+		$has_variant_b  = Experiment::get_variant_id( $experiment->ID ) > 0;
+
+		// If we're bypassing AND no explicit preview param AND the URL has an underlying public page,
+		// step out and let WP serve that page (admins see the original content as visitors did).
+		// If the URL is custom (no real page behind), we MUST still serve a variant — otherwise
+		// admins get a 404 on URLs that don't exist as posts.
+		if ( $bypass && '' === $preview && $has_underlying ) {
+			$this->expose_admin_marker( $experiment, $path, $has_underlying, $has_variant_b, 'original' );
+			return;
+		}
+		// Explicit "?abtest_preview=original" on an URL with an underlying page: also fall through.
+		if ( $bypass && 'original' === $preview && $has_underlying ) {
+			$this->expose_admin_marker( $experiment, $path, $has_underlying, $has_variant_b, 'original' );
+			return;
+		}
+
+		// Variant pick:
+		// - Bypass (admin/bot): force A or B based on preview param (B requires variant exists).
+		// - Baseline mode (no variant B configured): everyone gets A, cookie still set so conversion endpoint works.
+		// - Standard A/B: cookie persists 50/50 random pick.
+		if ( $bypass ) {
+			$variant = ( $has_variant_b && 'b' === $preview ) ? 'B' : 'A';
+		} elseif ( ! $has_variant_b ) {
+			$variant = 'A';
+			if ( null === Cookie::get_variant( $experiment->ID ) ) {
+				Cookie::set_variant( $experiment->ID, 'A' );
+			}
+		} else {
+			$variant = Cookie::get_variant( $experiment->ID );
+			if ( null === $variant ) {
+				$variant = Cookie::pick_variant();
+				Cookie::set_variant( $experiment->ID, $variant );
+			}
+		}
+
+		$variant_post_id = ( 'B' === $variant )
+			? Experiment::get_variant_id( $experiment->ID )
+			: Experiment::get_control_id( $experiment->ID );
+
+		if ( $variant_post_id <= 0 ) {
+			return;
+		}
+
+		$variant_post = get_post( $variant_post_id );
+		if ( ! $variant_post instanceof \WP_Post ) {
+			return;
+		}
+
+		// Rewrite query_vars so WP loads the variant post natively.
+		// Clear pagename/name from any matched rewrite rule so they don't fight ours.
+		$wp->query_vars = array_merge(
+			$wp->query_vars,
+			[
+				( 'page' === $variant_post->post_type ? 'page_id' : 'p' ) => $variant_post_id,
+				'post_type' => $variant_post->post_type,
+			]
+		);
+		unset( $wp->query_vars['pagename'], $wp->query_vars['name'], $wp->query_vars['error'] );
+
+		$this->current_experiment = $experiment;
+		$this->current_variant    = $variant;
+		$this->current_test_url   = Experiment::get_test_url( $experiment->ID );
+
+		// Send no-cache headers IMMEDIATELY on every test page so caches at any layer
+		// (server, plugin, edge CDN like Cloudflare/Kinsta) never store this response.
+		// Critical for the 50/50 split to work in production.
+		CacheBypass::send_no_cache_headers();
+
+		// Variant pages live in `private` status to hide them from public direct access.
+		// When OUR router serves them, allow that status in the main query and unblock
+		// post visibility checks that would otherwise 404 for non-logged-in visitors.
+		add_action(
+			'pre_get_posts',
+			function ( \WP_Query $query ) use ( $variant_post_id ) {
+				if ( ! $query->is_main_query() ) {
+					return;
+				}
+				if ( (int) $query->get( 'page_id' ) === $variant_post_id || (int) $query->get( 'p' ) === $variant_post_id ) {
+					$query->set( 'post_status', [ 'publish', 'private' ] );
+					$query->is_404 = false;
+				}
+			},
+			1
+		);
+
+		// Final safety net: if WP_Query still returned empty (private post visibility),
+		// inject the variant post directly so the request renders 200, not 404.
+		add_filter(
+			'posts_results',
+			function ( $posts, \WP_Query $query ) use ( $variant_post, $variant_post_id ) {
+				if ( ! $query->is_main_query() ) {
+					return $posts;
+				}
+				$queried_id = (int) $query->get( 'page_id' ) ?: (int) $query->get( 'p' );
+				if ( $queried_id !== $variant_post_id ) {
+					return $posts;
+				}
+				if ( empty( $posts ) ) {
+					$query->is_404           = false;
+					$query->is_singular      = true;
+					$query->is_page          = ( 'page' === $variant_post->post_type );
+					$query->is_single        = ( 'page' !== $variant_post->post_type );
+					$query->queried_object   = $variant_post;
+					$query->queried_object_id = $variant_post_id;
+					return [ $variant_post ];
+				}
+				return $posts;
+			},
+			10,
+			2
+		);
+
+		// Inject per-URL tracking scripts (Adwords / pixels / Lemlist) on themed pages.
+		// Blank Canvas pages handle their own injection inside the template.
+		add_action( 'wp_body_open', [ $this, 'print_scripts_after_body_open' ], 1 );
+		add_action( 'wp_footer', [ $this, 'print_scripts_before_body_close' ], 99 );
+
+		// Log impression once per request — but never for bypassed visitors (admins, bots).
+		if ( ! $bypass ) {
+			add_action(
+				'wp',
+				function () use ( $experiment, $variant ) {
+					Tracker::instance()->log_impression( $experiment->ID, $variant, $this->current_test_url );
+				},
+				1
+			);
+		} else {
+			$this->expose_admin_marker( $experiment, $path, $has_underlying, $has_variant_b, $variant );
+		}
+
+		add_filter( 'abtest_current_experiment', fn() => $experiment );
+		add_filter( 'abtest_current_variant', fn() => $variant );
+	}
+
+	/**
+	 * Extract the path portion from the WP request, normalized to "/foo/" form.
+	 */
+	private function extract_path_from_request( \WP $wp ): string {
+		// $wp->request is the matched permastruct (e.g. "promo" without slashes).
+		// Fall back to REQUEST_URI for paths that bypass rewrite (root, ?page_id=…).
+		$candidate = isset( $wp->request ) && '' !== $wp->request
+			? '/' . trim( (string) $wp->request, '/' ) . '/'
+			: '';
+
+		if ( '' === $candidate && isset( $_SERVER['REQUEST_URI'] ) ) {
+			// phpcs:ignore WordPress.Security.ValidatedSanitizedInput
+			$uri       = (string) $_SERVER['REQUEST_URI'];
+			$parsed    = wp_parse_url( $uri, PHP_URL_PATH );
+			$candidate = is_string( $parsed ) ? $parsed : '';
+		}
+
+		return Experiment::normalize_path( $candidate );
+	}
+
+	public function filter_canonical_url( $url, $post ) {
+		if ( null === $this->current_experiment || '' === $this->current_test_url ) {
+			return $url;
+		}
+		return home_url( $this->current_test_url );
+	}
+
+	public function filter_canonical_string( $url ) {
+		if ( null === $this->current_experiment || '' === $this->current_test_url ) {
+			return $url;
+		}
+		return home_url( $this->current_test_url );
+	}
+
+	public function maybe_block_canonical_redirect( $redirect_url, $requested_url ) {
+		if ( null !== $this->current_experiment ) {
+			return false;
+		}
+		return $redirect_url;
+	}
+
+	/**
+	 * True if this path resolves to a published, public post that WP can serve on its own.
+	 * Used to decide whether bypass mode should fall through to WP's normal rendering.
+	 */
+	private function url_resolves_to_public_page( string $path ): bool {
+		$slug = trim( $path, '/' );
+		if ( '' === $slug ) {
+			return false;
+		}
+		$post = get_page_by_path( $slug, OBJECT, [ 'page', 'post' ] );
+		if ( ! $post instanceof \WP_Post ) {
+			return false;
+		}
+		return 'publish' === $post->post_status;
+	}
+
+	public function print_scripts_after_body_open(): void {
+		if ( '' === $this->current_test_url ) {
+			return;
+		}
+		// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+		echo UrlScripts::render_for_position( $this->current_test_url, UrlScripts::POSITION_AFTER_BODY_OPEN );
+	}
+
+	public function print_scripts_before_body_close(): void {
+		if ( '' === $this->current_test_url ) {
+			return;
+		}
+		// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+		echo UrlScripts::render_for_position( $this->current_test_url, UrlScripts::POSITION_BEFORE_BODY_CLOSE );
+	}
+
+	private function should_bypass(): bool {
+		$settings = (array) get_option( 'abtest_settings', [] );
+
+		if ( ! empty( $settings['bypass_admins'] ) && is_user_logged_in() && current_user_can( 'edit_posts' ) ) {
+			return true;
+		}
+
+		if ( ! empty( $settings['bypass_bots'] ) && $this->is_bot() ) {
+			return true;
+		}
+
+		return false;
+	}
+
+	private function is_bot(): bool {
+		// phpcs:ignore WordPress.Security.ValidatedSanitizedInput
+		$ua = isset( $_SERVER['HTTP_USER_AGENT'] ) ? (string) $_SERVER['HTTP_USER_AGENT'] : '';
+		if ( '' === $ua ) {
+			return true;
+		}
+		return (bool) preg_match( '/bot|crawl|spider|slurp|fetch|monitor|preview/i', $ua );
+	}
+
+	/**
+	 * Read & sanitize the ?abtest_preview= query param. Returns '' if absent/invalid.
+	 * Accepts: 'a', 'b', 'original'.
+	 */
+	private function read_preview_param(): string {
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		if ( ! isset( $_GET['abtest_preview'] ) ) {
+			return '';
+		}
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended,WordPress.Security.ValidatedSanitizedInput
+		$value = sanitize_key( wp_unslash( (string) $_GET['abtest_preview'] ) );
+		return in_array( $value, [ 'a', 'b', 'original' ], true ) ? $value : '';
+	}
+
+	/**
+	 * Build a URL on the test path with a preview parameter set.
+	 */
+	private function preview_url( string $path, string $preview ): string {
+		$base = home_url( $path );
+		return add_query_arg( 'abtest_preview', $preview, $base );
+	}
+
+	/**
+	 * @param string $current_view Either 'A', 'B' or 'original' — what the admin is currently seeing.
+	 */
+	private function expose_admin_marker( \WP_Post $experiment, string $path, bool $has_underlying, bool $has_variant_b, string $current_view ): void {
+		$current_view = strtoupper( $current_view ) === 'ORIGINAL' ? 'original' : strtoupper( $current_view );
+
+		add_action(
+			'admin_bar_menu',
+			function ( $bar ) use ( $experiment, $path, $has_underlying, $has_variant_b, $current_view ) {
+				if ( ! current_user_can( 'edit_posts' ) ) {
+					return;
+				}
+
+				$label_map = [
+					'A'        => __( 'Variant A', 'ab-testing-wordpress' ),
+					'B'        => __( 'Variant B', 'ab-testing-wordpress' ),
+					'original' => __( 'Original page', 'ab-testing-wordpress' ),
+				];
+				$current_label = $label_map[ $current_view ] ?? $current_view;
+
+				$mode_suffix = $has_variant_b ? '' : ' · ' . __( 'baseline', 'ab-testing-wordpress' );
+
+				$bar->add_node(
+					[
+						'id'    => 'abtest-preview',
+						/* translators: 1: experiment title, 2: current variant label, 3: mode suffix */
+						'title' => sprintf(
+							esc_html__( 'A/B: %1$s — viewing %2$s%3$s', 'ab-testing-wordpress' ),
+							esc_html( get_the_title( $experiment ) ),
+							esc_html( $current_label ),
+							esc_html( $mode_suffix )
+						),
+						'href'  => '#',
+						'meta'  => [ 'class' => 'abtest-admin-bar-' . sanitize_html_class( strtolower( $current_view ) ) ],
+					]
+				);
+
+				$variants = [
+					'a' => [ 'label' => __( 'View Variant A', 'ab-testing-wordpress' ), 'view' => 'A' ],
+				];
+				if ( $has_variant_b ) {
+					$variants['b'] = [ 'label' => __( 'View Variant B', 'ab-testing-wordpress' ), 'view' => 'B' ];
+				}
+				if ( $has_underlying ) {
+					$variants['original'] = [ 'label' => __( 'View original page', 'ab-testing-wordpress' ), 'view' => 'original' ];
+				}
+
+				foreach ( $variants as $key => $opt ) {
+					$is_current = ( $opt['view'] === $current_view );
+					$bar->add_node(
+						[
+							'parent' => 'abtest-preview',
+							'id'     => 'abtest-preview-' . $key,
+							'title'  => $is_current
+								? sprintf( '✓ %s', esc_html( $opt['label'] ) )
+								: esc_html( $opt['label'] ),
+							'href'   => $is_current ? '#' : $this->preview_url( $path, $key ),
+						]
+					);
+				}
+
+				$bar->add_node(
+					[
+						'parent' => 'abtest-preview',
+						'id'     => 'abtest-preview-edit',
+						'title'  => esc_html__( 'Edit experiment', 'ab-testing-wordpress' ),
+						'href'   => admin_url( 'admin.php?page=ab-testing&action=edit&experiment=' . $experiment->ID ),
+					]
+				);
+			},
+			999
+		);
+	}
+
+	public function get_current_experiment(): ?\WP_Post {
+		return $this->current_experiment;
+	}
+
+	public function get_current_variant(): string {
+		return $this->current_variant;
+	}
+
+	public function get_current_test_url(): string {
+		return $this->current_test_url;
+	}
+}

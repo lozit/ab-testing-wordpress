@@ -1,0 +1,28 @@
+/vendor/
+/node_modules/
+composer.lock
+package-lock.json
+.DS_Store
+.idea/
+.vscode/
+*.log
+
+# wp-env runtime
+.wp-env/
+
+# Local test artifacts (HTML imports, sample files)
+/test.html
+/test-*.html
+/tools/
+
+# PHPUnit
+.phpunit.result.cache
+
+# Build artifacts
+/build/
+/dist/
+
+# OS / editor noise
+Thumbs.db
+*.swp
+*.swo

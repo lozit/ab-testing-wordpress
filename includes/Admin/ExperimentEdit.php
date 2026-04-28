@@ -1,0 +1,291 @@
+<?php
+/**
+ * Experiment create/edit screen.
+ *
+ * @package Abtest
+ */
+
+declare( strict_types=1 );
+
+namespace Abtest\Admin;
+
+use Abtest\Experiment;
+
+defined( 'ABSPATH' ) || exit;
+
+final class ExperimentEdit {
+
+	/**
+	 * Render a single row of the URL-scripts editor. Used by both the initial render
+	 * and (as a JS template via data-attribute) by the "Add script" button.
+	 */
+	public static function render_script_row( int $index, string $position, string $code ): void {
+		$positions = [
+			\Abtest\UrlScripts::POSITION_AFTER_BODY_OPEN   => __( 'After <body> opening tag', 'ab-testing-wordpress' ),
+			\Abtest\UrlScripts::POSITION_BEFORE_BODY_CLOSE => __( 'Before </body> closing tag', 'ab-testing-wordpress' ),
+		];
+		?>
+		<div class="abtest-url-script-row">
+			<div class="abtest-url-script-head">
+				<label>
+					<?php esc_html_e( 'Position:', 'ab-testing-wordpress' ); ?>
+					<select name="url_scripts[<?php echo (int) $index; ?>][position]">
+						<?php foreach ( $positions as $value => $label ) : ?>
+							<option value="<?php echo esc_attr( $value ); ?>" <?php selected( $position, $value ); ?>>
+								<?php echo esc_html( $label ); ?>
+							</option>
+						<?php endforeach; ?>
+					</select>
+				</label>
+				<button type="button" class="button-link abtest-url-script-remove" aria-label="<?php esc_attr_e( 'Remove this script', 'ab-testing-wordpress' ); ?>">
+					<?php esc_html_e( 'Remove', 'ab-testing-wordpress' ); ?>
+				</button>
+			</div>
+			<textarea name="url_scripts[<?php echo (int) $index; ?>][code]" rows="6" class="large-text code" placeholder="<?php esc_attr_e( '<script>gtag(\'event\', \'page_view\')</script>', 'ab-testing-wordpress' ); ?>"><?php echo esc_textarea( $code ); ?></textarea>
+		</div>
+		<?php
+	}
+
+	public static function render( int $experiment_id ): void {
+		Admin::maybe_render_notice();
+
+		$is_new       = $experiment_id <= 0;
+		$post         = $is_new ? null : get_post( $experiment_id );
+		$title        = $post ? $post->post_title : '';
+		$test_path    = $is_new ? '' : Experiment::get_test_url( $experiment_id );
+
+		// Pre-fill test_url from query string when creating a new experiment via the
+		// per-URL "+ Add experiment to this URL" button.
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		if ( $is_new && isset( $_GET['test_url'] ) ) {
+			// phpcs:ignore WordPress.Security.NonceVerification.Recommended
+			$test_path = Experiment::normalize_path( sanitize_text_field( wp_unslash( $_GET['test_url'] ) ) );
+		}
+
+		$control_id   = $is_new ? 0 : Experiment::get_control_id( $experiment_id );
+		$variant_id   = $is_new ? 0 : Experiment::get_variant_id( $experiment_id );
+		$goal         = $is_new ? [ 'type' => Experiment::GOAL_URL, 'value' => '' ] : Experiment::get_goal( $experiment_id );
+		$status       = $is_new ? Experiment::STATUS_DRAFT : Experiment::get_status( $experiment_id );
+
+		// Variant pages may be in `private` status — list those too so admins can pick / re-pick them.
+		$pages = get_posts(
+			[
+				'post_type'      => [ 'page', 'post' ],
+				'post_status'    => [ 'publish', 'private', 'draft' ],
+				'posts_per_page' => 200,
+				'orderby'        => 'title',
+				'order'          => 'ASC',
+			]
+		);
+
+		$action_url = admin_url( 'admin-post.php' );
+		$full_url   = '' !== $test_path ? home_url( $test_path ) : '';
+
+		// Detect conflict: an existing post that already lives at this path.
+		$conflict_post = null;
+		if ( '' !== $test_path ) {
+			$slug = trim( $test_path, '/' );
+			$conflict_post = get_page_by_path( $slug, OBJECT, [ 'page', 'post' ] );
+			if ( $conflict_post && in_array( (int) $conflict_post->ID, [ $control_id, $variant_id ], true ) ) {
+				$conflict_post = null; // It's our own variant — not a conflict.
+			}
+		}
+		?>
+		<div class="wrap abtest-wrap">
+			<h1><?php echo esc_html( $is_new ? __( 'New A/B Test', 'ab-testing-wordpress' ) : __( 'Edit A/B Test', 'ab-testing-wordpress' ) ); ?></h1>
+
+			<?php if ( $full_url ) : ?>
+				<div class="notice notice-info inline abtest-test-url-banner">
+					<p>
+						<strong><?php esc_html_e( 'Test URL — share this with your visitors:', 'ab-testing-wordpress' ); ?></strong><br>
+						<a href="<?php echo esc_url( $full_url ); ?>" target="_blank" rel="noopener"><code><?php echo esc_html( $full_url ); ?></code></a>
+						<br>
+						<em><?php esc_html_e( 'Visitors are split 50/50 between the two variants via a cookie. The URL stays the same for everyone.', 'ab-testing-wordpress' ); ?></em>
+					</p>
+				</div>
+			<?php endif; ?>
+
+			<?php if ( $conflict_post ) : ?>
+				<div class="notice notice-warning inline">
+					<p>
+						<?php
+						printf(
+							/* translators: 1: existing post title, 2: post ID */
+							esc_html__( 'Heads up: a published post already lives at this URL — "%1$s" (#%2$d). The A/B test will hide it while running, and restore it when the test is paused or ended.', 'ab-testing-wordpress' ),
+							esc_html( get_the_title( $conflict_post ) ),
+							(int) $conflict_post->ID
+						);
+						?>
+					</p>
+				</div>
+			<?php endif; ?>
+
+			<form method="post" action="<?php echo esc_url( $action_url ); ?>" class="abtest-form">
+				<?php wp_nonce_field( Admin::nonce_action(), '_abtest_nonce' ); ?>
+				<input type="hidden" name="action" value="abtest_save_experiment">
+				<input type="hidden" name="experiment_id" value="<?php echo (int) $experiment_id; ?>">
+
+				<table class="form-table" role="presentation">
+					<tr>
+						<th scope="row"><label for="abtest-title"><?php esc_html_e( 'Title', 'ab-testing-wordpress' ); ?></label></th>
+						<td><input type="text" id="abtest-title" name="title" class="regular-text" value="<?php echo esc_attr( $title ); ?>" required></td>
+					</tr>
+					<tr>
+						<th scope="row"><label for="abtest-test-url"><?php esc_html_e( 'Test URL', 'ab-testing-wordpress' ); ?></label></th>
+						<td>
+							<input type="text" id="abtest-test-url" name="test_url" class="regular-text code" placeholder="/promo/" value="<?php echo esc_attr( $test_path ); ?>" pattern="^/[a-z0-9\-_/]+/$" required>
+							<p class="description">
+								<?php esc_html_e( 'Public URL where visitors will see the A/B test. Format: lowercase path between slashes (e.g. /promo/, /landing-2026/, /pricing/new/).', 'ab-testing-wordpress' ); ?>
+							</p>
+						</td>
+					</tr>
+					<tr>
+						<th scope="row"><label for="abtest-control"><?php esc_html_e( 'Variant A (control)', 'ab-testing-wordpress' ); ?></label></th>
+						<td>
+							<select id="abtest-control" name="control_id" required>
+								<option value=""><?php esc_html_e( '— Select —', 'ab-testing-wordpress' ); ?></option>
+								<?php foreach ( $pages as $page ) : ?>
+									<option value="<?php echo (int) $page->ID; ?>" <?php selected( (int) $page->ID, $control_id ); ?>>
+										<?php echo esc_html( get_the_title( $page ) . ' (#' . $page->ID . ' · ' . $page->post_status . ')' ); ?>
+									</option>
+								<?php endforeach; ?>
+							</select>
+							<p class="description"><?php esc_html_e( 'Content source for variant A. The page itself is hidden from public access while the test runs.', 'ab-testing-wordpress' ); ?></p>
+						</td>
+					</tr>
+					<tr>
+						<th scope="row"><label for="abtest-variant"><?php esc_html_e( 'Variant B (optional)', 'ab-testing-wordpress' ); ?></label></th>
+						<td>
+							<select id="abtest-variant" name="variant_id">
+								<option value=""><?php esc_html_e( '— None (baseline mode) —', 'ab-testing-wordpress' ); ?></option>
+								<?php foreach ( $pages as $page ) : ?>
+									<option value="<?php echo (int) $page->ID; ?>" <?php selected( (int) $page->ID, $variant_id ); ?>>
+										<?php echo esc_html( get_the_title( $page ) . ' (#' . $page->ID . ' · ' . $page->post_status . ')' ); ?>
+									</option>
+								<?php endforeach; ?>
+							</select>
+							<p class="description">
+								<?php esc_html_e( 'Leave empty to run in baseline mode — every visitor sees Variant A while you measure the baseline conversion rate. Add a Variant B later to start the actual A/B split.', 'ab-testing-wordpress' ); ?>
+							</p>
+						</td>
+					</tr>
+					<tr>
+						<th scope="row"><?php esc_html_e( 'Goal', 'ab-testing-wordpress' ); ?></th>
+						<td>
+							<fieldset>
+								<label>
+									<input type="radio" name="goal_type" value="<?php echo esc_attr( Experiment::GOAL_URL ); ?>" <?php checked( $goal['type'], Experiment::GOAL_URL ); ?>>
+									<?php esc_html_e( 'URL visited (e.g. /thank-you)', 'ab-testing-wordpress' ); ?>
+								</label><br>
+								<label>
+									<input type="radio" name="goal_type" value="<?php echo esc_attr( Experiment::GOAL_SELECTOR ); ?>" <?php checked( $goal['type'], Experiment::GOAL_SELECTOR ); ?>>
+									<?php esc_html_e( 'CSS selector clicked (e.g. .cta-buy)', 'ab-testing-wordpress' ); ?>
+								</label>
+							</fieldset>
+						</td>
+					</tr>
+					<tr>
+						<th scope="row"><label for="abtest-goal-value"><?php esc_html_e( 'Goal value', 'ab-testing-wordpress' ); ?></label></th>
+						<td>
+							<input type="text" id="abtest-goal-value" name="goal_value" class="regular-text" value="<?php echo esc_attr( $goal['value'] ); ?>" required>
+							<p class="description"><?php esc_html_e( 'URL path or CSS selector matching the conversion event.', 'ab-testing-wordpress' ); ?></p>
+						</td>
+					</tr>
+					<tr>
+						<th scope="row"><?php esc_html_e( 'Current status', 'ab-testing-wordpress' ); ?></th>
+						<td>
+							<?php if ( $is_new ) : ?>
+								<span class="abtest-status abtest-status-draft"><?php esc_html_e( 'New', 'ab-testing-wordpress' ); ?></span>
+							<?php else : ?>
+								<span class="abtest-status abtest-status-<?php echo esc_attr( $status ); ?>"><?php echo esc_html( ucfirst( $status ) ); ?></span>
+							<?php endif; ?>
+							<?php if ( Experiment::STATUS_PAUSED === $status ) : ?>
+								<p class="description"><?php esc_html_e( 'To run this paused experiment again, use the Resume action from the experiments list — it creates a new experiment with fresh dates and ends this one cleanly.', 'ab-testing-wordpress' ); ?></p>
+							<?php elseif ( Experiment::STATUS_ENDED === $status ) : ?>
+								<p class="description"><?php esc_html_e( 'This experiment is ended (terminal state). Its dates are locked.', 'ab-testing-wordpress' ); ?></p>
+							<?php endif; ?>
+						</td>
+					</tr>
+				</table>
+
+				<?php
+				// Tracking scripts editor for the URL of this experiment.
+				if ( '' !== $test_path ) {
+					$url_scripts = \Abtest\UrlScripts::get( $test_path );
+				} else {
+					$url_scripts = [];
+				}
+				?>
+				<h2 class="abtest-section-title"><?php esc_html_e( 'Tracking scripts', 'ab-testing-wordpress' ); ?></h2>
+				<p class="description">
+					<?php
+					printf(
+						/* translators: %s: URL path */
+						esc_html__( 'Shared with every experiment on %s. Injected as-is into the rendered page (Blank Canvas templates and themed pages alike). Save the form to persist changes.', 'ab-testing-wordpress' ),
+						'<code>' . esc_html( $test_path ?: '/your-url/' ) . '</code>' // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+					);
+					?>
+				</p>
+
+				<div class="abtest-url-scripts" data-empty-msg="<?php esc_attr_e( 'No scripts yet — click + Add script.', 'ab-testing-wordpress' ); ?>">
+					<?php if ( empty( $url_scripts ) ) : ?>
+						<p class="abtest-url-scripts-empty"><?php esc_html_e( 'No scripts yet — click + Add script.', 'ab-testing-wordpress' ); ?></p>
+					<?php else : ?>
+						<?php foreach ( $url_scripts as $i => $entry ) : ?>
+							<?php self::render_script_row( $i, (string) $entry['position'], (string) $entry['code'] ); ?>
+						<?php endforeach; ?>
+					<?php endif; ?>
+				</div>
+
+				<p>
+					<button type="button" class="button button-secondary abtest-url-script-add">+ <?php esc_html_e( 'Add script', 'ab-testing-wordpress' ); ?></button>
+				</p>
+
+				<?php
+				// New experiments start from DRAFT for transition purposes.
+				$transition_baseline = $is_new ? Experiment::STATUS_DRAFT : $status;
+				$allowed_statuses    = Experiment::allowed_next_statuses( $transition_baseline );
+
+				// Map each allowed target status to a button label (kept-vs-transitioned).
+				$button_specs = [
+					Experiment::STATUS_DRAFT   => [
+						'keep' => __( 'Save as Draft', 'ab-testing-wordpress' ),
+						'to'   => __( 'Save as Draft', 'ab-testing-wordpress' ),
+					],
+					Experiment::STATUS_RUNNING => [
+						'keep' => __( 'Save (still running)', 'ab-testing-wordpress' ),
+						'to'   => __( 'Save & Start', 'ab-testing-wordpress' ),
+					],
+					Experiment::STATUS_PAUSED  => [
+						'keep' => __( 'Save (still paused)', 'ab-testing-wordpress' ),
+						'to'   => __( 'Save & Pause', 'ab-testing-wordpress' ),
+					],
+					Experiment::STATUS_ENDED   => [
+						'keep' => __( 'Save (still ended)', 'ab-testing-wordpress' ),
+						'to'   => __( 'Save & End', 'ab-testing-wordpress' ),
+					],
+				];
+
+				// Primary button = the most common next action.
+				if ( $is_new || Experiment::STATUS_DRAFT === $status ) {
+					$primary = Experiment::STATUS_RUNNING;
+				} else {
+					$primary = $status; // existing experiment → encourage staying
+				}
+				?>
+				<p class="submit abtest-status-buttons">
+					<?php foreach ( $allowed_statuses as $option ) :
+						$is_keep    = ( $option === $status && ! $is_new );
+						$label      = $is_keep ? $button_specs[ $option ]['keep'] : $button_specs[ $option ]['to'];
+						$is_primary = ( $option === $primary );
+						?>
+						<button type="submit" name="status" value="<?php echo esc_attr( $option ); ?>" class="button <?php echo $is_primary ? 'button-primary' : 'button-secondary'; ?> abtest-btn-<?php echo esc_attr( $option ); ?>">
+							<?php echo esc_html( $label ); ?>
+						</button>
+					<?php endforeach; ?>
+				</p>
+			</form>
+		</div>
+		<?php
+	}
+}
