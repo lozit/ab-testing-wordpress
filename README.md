@@ -1,5 +1,10 @@
 # A/B Testing for WordPress
 
+[![CI](https://github.com/lozit/ab-testing-wordpress/actions/workflows/ci.yml/badge.svg)](https://github.com/lozit/ab-testing-wordpress/actions/workflows/ci.yml)
+[![License: GPL v2+](https://img.shields.io/badge/License-GPL%20v2%2B-blue.svg)](./LICENSE)
+[![PHP 8.1+](https://img.shields.io/badge/PHP-8.1%2B-777BB4.svg)](#)
+[![WordPress 6.0+](https://img.shields.io/badge/WordPress-6.0%2B-21759B.svg)](#)
+
 A self-hosted A/B testing plugin for WordPress. Test landing pages, compare conversion rates, and pipe events to your analytics stack — all on your own database, no third-party dependency required.
 
 Built around three core ideas:
