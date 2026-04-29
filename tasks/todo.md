@@ -83,7 +83,7 @@
 - [ ] WooCommerce (variantes prix / descriptions produit)
 
 ### Capacités produit
-- [ ] Multi-variantes A/B/C/D
+- [x] **Multi-variantes A/B/C/D** — split équitable, pairwise vs baseline + Bonferroni, UI dynamique add/remove, migration auto v1.2.0, REST + CSV étendus
 - [ ] Block-level testing (bloc Gutenberg unique au lieu de page entière)
 - [ ] Targeting (geo, device, segment)
 - [ ] Multi-langue (WPML / Polylang)
