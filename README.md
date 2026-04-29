@@ -28,6 +28,8 @@ Built around three core ideas:
 - Each experiment has a `test_url` field independent from the variant pages
 - A test URL can override an existing public WordPress page or live as a virtual URL with no underlying post
 - Variant pages auto-hidden (`private` post status) so they're not directly accessible
+- **Unicode paths** supported (`/promotion-été/` matches both raw and percent-encoded requests)
+- **Query string subset matching** — `test_url = /promo/?campaign=fb` matches `/promo/?campaign=fb&utm_source=email` (param order canonicalized so `?b=2&a=1` and `?a=1&b=2` are equivalent)
 
 ### Tracking & Stats
 - Internal events table (impressions + conversions) — full ownership of your data
@@ -46,6 +48,8 @@ Built around three core ideas:
 
 ### HTML import & Blank Canvas
 - Upload a complete HTML document (`.html`/`.htm`) → creates a page rendered byte-perfect with **zero WordPress wrapper** (no theme chrome, no `wp_head`)
+- **`.zip` upload with assets** — bundle CSS/JS/images alongside `index.html`; the importer extracts to `wp-content/uploads/abtest-templates/{slug}/`, rewrites relative `href`/`src`/`srcset`/`url()` to absolute URLs, and hardens against path traversal (extension allowlist, no `../`, no dotfiles)
+- **Watch directory** — drop or edit `index.html` files in `wp-content/uploads/abtest-templates/{slug}/` (via your IDE, SFTP, Dropbox, iCloud Drive…); WP-Cron syncs changed files into pages every 5 minutes (or hit the *Scan now* button). Hash-based change detection. Additive only — never deletes pages.
 - Designed for landing pages built outside WordPress (custom HTML/CSS, bundlers, mockup tools)
 - Replace existing variant page with one click
 - Preserves `\n`, `/`, JSON-encoded payloads (uses `wp_slash()` to survive WP's slash dance)
@@ -281,15 +285,14 @@ A growing list of WordPress traps documented in [`tasks/lessons.md`](./tasks/les
 
 ## Roadmap
 
-Most-likely next iterations (see [`tasks/todo.md`](./tasks/todo.md) for the full backlog):
+Most-likely next iterations (see [`tasks/todo.md`](./tasks/todo.md) for the full backlog and what's already shipped):
 
-- Export CSV (per URL or per experiment)
-- Scheduling auto (start/end at a date via WP-Cron) to align with paid campaign launches
-- Multi-variants A/B/C/D
 - Block-level testing (target a single Gutenberg block instead of a whole page)
-- Auto-purge Kinsta cache via REST API on test transitions
+- WooCommerce variants (test prices, product descriptions)
 - WPML / Polylang multilingual support
-- Integration tests via `wp-phpunit`
+- Auto-purge Kinsta cache via REST API on test transitions
+- Consent-aware tracking (respect detected consent plugins)
+- Refactor `Stats::for_experiment` → batch query (1 SQL for N experiments)
 
 ---
 
