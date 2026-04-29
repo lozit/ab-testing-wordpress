@@ -36,6 +36,11 @@ final class Tracker {
 		if ( null === $experiment ) {
 			return;
 		}
+		// Skip the conversion JS for visitors we don't track (out-of-target, admin/bot bypass).
+		// They see the baseline page but their clicks must not log conversions.
+		if ( ! Router::instance()->is_current_tracked() ) {
+			return;
+		}
 
 		$handle = 'abtest-tracker';
 		wp_register_script(

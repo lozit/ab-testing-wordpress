@@ -19,6 +19,7 @@ final class Router {
 	private ?\WP_Post $current_experiment = null;
 	private string $current_variant       = 'A';
 	private string $current_test_url      = '';
+	private bool $current_is_tracked      = false;
 
 	public static function instance(): self {
 		if ( null === self::$instance ) {
@@ -62,9 +63,15 @@ final class Router {
 		$labels         = Experiment::get_variant_labels( $experiment->ID ); // e.g. ['A'] (baseline) or ['A','B','C']
 		$has_variant_b  = in_array( 'B', $labels, true );
 
-		// Targeting (geo / device) — gate visitors who don't match. Admins/bots in bypass
-		// mode always pass so preview is independent of the previewer's device/country.
-		if ( ! $bypass && ! Targeting::matches( $experiment->ID ) ) {
+		// Targeting check. Admin/bot bypass always passes — preview is independent of
+		// the previewer's device/country. For out-of-target visitors :
+		//   - if URL has an underlying public page, fall through to WP's normal render;
+		//   - otherwise (custom URL with no real page), serve the baseline variant A
+		//     SILENTLY: no cookie set, no impression logged, no tracker.js enqueued.
+		// This way Adwords/Lemlist clicks from outside the target audience still see a
+		// real page (no 404), but they don't pollute the experiment's stats.
+		$out_of_target = ! $bypass && ! Targeting::matches( $experiment->ID );
+		if ( $out_of_target && $has_underlying ) {
 			return;
 		}
 
@@ -83,10 +90,13 @@ final class Router {
 		}
 
 		// Variant pick:
+		// - Out-of-target: force baseline (A), don't touch the cookie.
 		// - Bypass (admin/bot): force the previewed label if valid, else first label (A).
 		// - Baseline mode (only one variant): everyone gets it; cookie set so conversion endpoint works.
 		// - Standard multi-variant: persistent cookie, uniform-random pick from configured labels.
-		if ( $bypass ) {
+		if ( $out_of_target ) {
+			$variant = $labels[0] ?? 'A';
+		} elseif ( $bypass ) {
 			$preview_upper = strtoupper( $preview );
 			$variant       = in_array( $preview_upper, $labels, true ) ? $preview_upper : ( $labels[0] ?? 'A' );
 		} elseif ( count( $labels ) <= 1 ) {
@@ -123,9 +133,12 @@ final class Router {
 		);
 		unset( $wp->query_vars['pagename'], $wp->query_vars['name'], $wp->query_vars['error'] );
 
-		$this->current_experiment = $experiment;
-		$this->current_variant    = $variant;
-		$this->current_test_url   = Experiment::get_test_url( $experiment->ID );
+		$this->current_experiment  = $experiment;
+		$this->current_variant     = $variant;
+		$this->current_test_url    = Experiment::get_test_url( $experiment->ID );
+		// Tracked = the visitor counts in the test stats. Out-of-target and admin/bot
+		// bypass do NOT count: they see a variant but no impression/conversion is logged.
+		$this->current_is_tracked  = ! $bypass && ! $out_of_target;
 
 		// Send no-cache headers IMMEDIATELY on every test page so caches at any layer
 		// (server, plugin, edge CDN like Cloudflare/Kinsta) never store this response.
@@ -181,8 +194,9 @@ final class Router {
 		add_action( 'wp_body_open', [ $this, 'print_scripts_after_body_open' ], 1 );
 		add_action( 'wp_footer', [ $this, 'print_scripts_before_body_close' ], 99 );
 
-		// Log impression once per request — but never for bypassed visitors (admins, bots).
-		if ( ! $bypass ) {
+		// Log impression once per request — but never for bypassed admins/bots, nor for
+		// out-of-target visitors (they see the baseline silently, not part of the test).
+		if ( $this->current_is_tracked ) {
 			add_action(
 				'wp',
 				function () use ( $experiment, $variant ) {
@@ -190,9 +204,10 @@ final class Router {
 				},
 				1
 			);
-		} else {
+		} elseif ( $bypass ) {
 			$this->expose_admin_marker( $experiment, $path, $has_underlying, $has_variant_b, $variant );
 		}
+		// out_of_target: no impression, no admin marker — visitor silently sees baseline.
 
 		add_filter( 'abtest_current_experiment', fn() => $experiment );
 		add_filter( 'abtest_current_variant', fn() => $variant );
@@ -400,5 +415,14 @@ final class Router {
 
 	public function get_current_test_url(): string {
 		return $this->current_test_url;
+	}
+
+	/**
+	 * True when the current request is being tracked as part of the experiment
+	 * (vs. served silently because the visitor is out-of-target or in admin/bot bypass).
+	 * Used by Tracker to decide whether to enqueue the front-end conversion script.
+	 */
+	public function is_current_tracked(): bool {
+		return $this->current_is_tracked;
 	}
 }

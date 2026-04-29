@@ -4,7 +4,7 @@ Tags: ab testing, split testing, conversion, analytics
 Requires at least: 6.0
 Tested up to: 6.5
 Requires PHP: 8.1
-Stable tag: 0.6.0
+Stable tag: 0.6.1
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -96,6 +96,10 @@ No. Logged-in users with `edit_posts` capability are bypassed and always see the
 v1 only swaps the entire page (the variant must be a separate post). Block-level and product-level testing are on the roadmap.
 
 == Changelog ==
+
+= 0.6.1 =
+* Targeting refinement: out-of-target visitors now silently see the baseline (Variant A) instead of getting a 404 on custom URLs. They are NOT tracked — no cookie set, no impression logged, no conversion script enqueued. Out-of-target visitors on URLs that override an existing public page still fall through to that original page (unchanged).
+* The point: ad-paid traffic from outside your target audience (geo or device) doesn't waste clicks on 404s and doesn't pollute your test stats either.
 
 = 0.6.0 =
 * Targeting by device (mobile / tablet / desktop) and country (ISO codes).
