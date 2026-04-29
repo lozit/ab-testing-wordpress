@@ -179,7 +179,7 @@ final class Webhook {
 			'experiment_title' => 'Webhook test',
 			'variant'          => 'A',
 			'test_url'         => '/test/',
-			'visitor_hash'     => str_repeat( '0', 64 ),
+			'visitor_hash'     => str_repeat( '0', \Abtest\Cookie::HASH_LENGTH ),
 			'timestamp'        => gmdate( 'c' ),
 			'site_url'         => home_url(),
 			'note'             => 'Synthetic event sent via the Send test event button — safe to ignore.',

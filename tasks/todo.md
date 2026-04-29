@@ -96,9 +96,10 @@
 - [x] **Refactor `Stats::for_experiment` → batch query** (v0.8.1) — nouveau public `Stats::raw_counts_for_experiments(array $ids, $from, $to)` (1 SQL pour N experiments). Utilisé par l'endpoint REST `GET /abtest/v1/stats` (N+1 → 1) ET la liste admin (consolidation, suppression du duplicat privé `aggregate_event_counts`). 5 tests d'intégration nouveaux.
 - [x] **Bump WP-env vers 6.9** + dropper pin `~6.5.0` sur wp-phpunit (v0.8.1) — `.wp-env.json` → `WordPress/WordPress#6.9.4`, `composer.json` → `wp-phpunit/wp-phpunit ^6.9`, `Tested up to: 6.9` dans readme.txt. Fix au passage du notice PHP 6.7+ "load_textdomain_just_in_time" en hookant `load_plugin_textdomain` sur `init/0` au lieu de `plugins_loaded`.
 
-### RGPD / conformité (v0.8.0)
-- [x] **Option "respecter consentement"** — toggle "Require consent" dans Settings + filtre `abtest_visitor_has_consent` (true/false/null) + chemin silent baseline (zéro cookie, zéro impression) quand pas de consent. Off par défaut, no breaking change. Helper `Consent::is_blocked()` + 5 tests unitaires.
-- [x] **Doc cookie pour politique de confidentialité** — 3 surfaces : (a) `wp_add_privacy_policy_content()` natif WP via `includes/PrivacyPolicy.php` (visible dans Settings → Privacy → Policy Guide), (b) section `## Privacy & GDPR` dans README.md avec snippets Complianz/CookieYes/Cookiebot, (c) section `== Privacy ==` dans readme.txt.
+### RGPD / conformité (v0.8.0–v0.8.2)
+- [x] **Option "respecter consentement"** (v0.8.0) — toggle "Require consent" dans Settings + filtre `abtest_visitor_has_consent` (true/false/null) + chemin silent baseline (zéro cookie, zéro impression) quand pas de consent. Off par défaut, no breaking change. Helper `Consent::is_blocked()` + 5 tests unitaires.
+- [x] **Doc cookie pour politique de confidentialité** (v0.8.0) — 3 surfaces : (a) `wp_add_privacy_policy_content()` natif WP via `includes/PrivacyPolicy.php` (visible dans Settings → Privacy → Policy Guide), (b) section `## Privacy & GDPR` dans README.md avec snippets Complianz/CookieYes/Cookiebot, (c) section `== Privacy ==` dans readme.txt.
+- [x] **Anonymisation du `visitor_hash`** (v0.8.2) — tronqué de 64 → 16 hex chars (64 bits). Surface d'attaque réduite, dedup encore safe (collision < 3e-8 à 1M visiteurs/exp). Schema migration v1.3.0 : SUBSTRING idempotent puis ALTER COLUMN, vérifié e2e dans wp-env. PrivacyPolicy texte mis à jour.
 
 ### HTML import — limites mineures (v0.7.0)
 - [x] **Format zip avec assets** (CSS, JS, images) — extraction sécurisée vers `wp-content/uploads/abtest-templates/{slug}/` (extension allowlist + path-traversal guard), réécriture des URL relatives href/src/srcset/url() en absolues dans le HTML stocké

@@ -66,7 +66,17 @@ final class Cookie {
 	}
 
 	/**
-	 * Stable visitor hash for dedup. Salted with wp_salt so it can't be reversed across sites.
+	 * Truncated digest length stored in the events table. 16 hex chars = 64 bits =
+	 * ~1.8e19 unique values — birthday collision probability stays under 3e-8 even
+	 * at 1M visitors per experiment, and dedup still works perfectly. Shorter
+	 * digest reduces RGPD attack surface (less data to brute-force against IP+UA
+	 * rainbow tables) and shrinks the column from CHAR(64) to CHAR(16).
+	 */
+	public const HASH_LENGTH = 16;
+
+	/**
+	 * Stable visitor hash for dedup. SHA-256 salted with wp_salt('auth') —
+	 * non-reversible across sites — then truncated to HASH_LENGTH hex chars.
 	 */
 	public static function visitor_hash(): string {
 		$ip = '';
@@ -77,7 +87,7 @@ final class Cookie {
 		if ( isset( $_SERVER['HTTP_USER_AGENT'] ) ) {
 			$ua = (string) $_SERVER['HTTP_USER_AGENT']; // phpcs:ignore WordPress.Security.ValidatedSanitizedInput
 		}
-		return hash( 'sha256', $ip . '|' . $ua . '|' . wp_salt( 'auth' ) );
+		return substr( hash( 'sha256', $ip . '|' . $ua . '|' . wp_salt( 'auth' ) ), 0, self::HASH_LENGTH );
 	}
 
 	/**

@@ -13,6 +13,7 @@ declare( strict_types=1 );
 
 namespace Abtest\Tests\Integration;
 
+use Abtest\Cookie;
 use Abtest\Schema;
 use Abtest\Stats;
 use Abtest\Tracker;
@@ -29,7 +30,7 @@ final class StatsBatchTest extends WP_UnitTestCase {
 				'variant'       => $variant,
 				'test_url'      => '/promo/',
 				'event_type'    => $type,
-				'visitor_hash'  => str_repeat( 'a', 64 ),
+				'visitor_hash'  => str_repeat( 'a', Cookie::HASH_LENGTH ),
 				'created_at'    => $when,
 			]
 		);

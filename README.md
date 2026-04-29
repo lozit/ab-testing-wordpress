@@ -129,7 +129,7 @@ The plugin is designed to be conservative by default — no raw IP, no User-Agen
 | Cookie flags | `HttpOnly`, `SameSite=Lax`, `Secure` over HTTPS |
 | DB table | `wp_abtest_events` |
 | DB columns | `experiment_id`, `variant`, `test_url`, `event_type`, `created_at`, `visitor_hash` |
-| `visitor_hash` | `sha256(IP + '|' + UA + '|' + wp_salt('auth'))` — non-reversible, single-site, salt-rotated; **no raw IP or UA stored** |
+| `visitor_hash` | First 16 hex chars (64 bits) of `sha256(IP + '|' + UA + '|' + wp_salt('auth'))` — non-reversible, single-site, salt-rotated; **no raw IP or UA stored**. Truncation reduces brute-force surface while keeping dedup statistically safe (collision probability < 3e-8 at 1M visitors/exp). |
 | Third parties | None by default. GA4 / Webhooks integrations are off until configured. |
 
 A native privacy-policy snippet is registered with WordPress on activation — find it under **Settings → Privacy → Policy Guide → AB Testing WordPress**, ready to paste into your privacy policy.

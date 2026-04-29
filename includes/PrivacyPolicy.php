@@ -71,7 +71,7 @@ final class PrivacyPolicy {
 			[ 'code' => [] ]
 		) . '</li>';
 		$content .= '<li>' . wp_kses(
-			__( '<code>visitor_hash</code> — a SHA-256 hash computed from the visitor\'s IP address, User-Agent string, and a site-specific secret salt. <strong>The IP and User-Agent are never stored in their raw form.</strong> The hash is non-reversible, single-site, and changes whenever the visitor switches network or browser, so it cannot be linked back to a real-world identity from the database alone.', 'ab-testing-wordpress' ),
+			__( '<code>visitor_hash</code> — a 16-character truncated SHA-256 hash (64 bits) computed from the visitor\'s IP address, User-Agent string, and a site-specific secret salt. <strong>The IP and User-Agent are never stored in their raw form.</strong> The hash is non-reversible, single-site, and changes whenever the visitor switches network or browser, so it cannot be linked back to a real-world identity from the database alone. Truncation to 64 bits further reduces the rainbow-table attack surface while preserving dedup integrity.', 'ab-testing-wordpress' ),
 			[ 'code' => [], 'strong' => [] ]
 		) . '</li>';
 		$content .= '</ul>';

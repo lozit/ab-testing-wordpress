@@ -32,7 +32,7 @@ final class Schema {
 			variant CHAR(1) NOT NULL,
 			test_url VARCHAR(2048) NULL,
 			event_type VARCHAR(20) NOT NULL,
-			visitor_hash CHAR(64) NOT NULL,
+			visitor_hash CHAR(16) NOT NULL,
 			created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 			PRIMARY KEY  (id),
 			KEY exp_var_type (experiment_id, variant, event_type),

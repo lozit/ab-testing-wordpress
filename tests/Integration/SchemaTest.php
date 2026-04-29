@@ -9,6 +9,7 @@ declare( strict_types=1 );
 
 namespace Abtest\Tests\Integration;
 
+use Abtest\Cookie;
 use Abtest\Schema;
 use Abtest\Tracker;
 use WP_UnitTestCase;
@@ -43,7 +44,7 @@ final class SchemaTest extends WP_UnitTestCase {
 				'variant'       => 'A',
 				'test_url'      => '/integ-test/',
 				'event_type'    => Tracker::EVENT_IMPRESSION,
-				'visitor_hash'  => str_repeat( '0', 64 ),
+				'visitor_hash'  => str_repeat( '0', Cookie::HASH_LENGTH ),
 				'created_at'    => current_time( 'mysql', true ),
 			]
 		);

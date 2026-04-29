@@ -70,6 +70,13 @@ final class Plugin {
 			return;
 		}
 
+		// 1.3.0 shrinks visitor_hash from CHAR(64) to CHAR(16). Truncate stored
+		// values FIRST so dbDelta's ALTER doesn't lose data (or fail under strict
+		// sql_mode). Idempotent — SUBSTRING is a no-op once values are already 16.
+		if ( '' !== (string) $installed && version_compare( (string) $installed, '1.3.0', '<' ) ) {
+			self::pre_install_truncate_visitor_hash();
+		}
+
 		// Schema changes (CREATE/ALTER) — safe at plugins_loaded.
 		Schema::install();
 
@@ -83,6 +90,23 @@ final class Plugin {
 		}
 
 		update_option( 'abtest_db_version', ABTEST_DB_VERSION );
+	}
+
+	/**
+	 * Truncate every existing visitor_hash to Cookie::HASH_LENGTH chars BEFORE
+	 * the schema ALTER shrinks the column. Idempotent: SUBSTRING(x, 1, 16) on
+	 * an already-16-char value returns the same value.
+	 */
+	private static function pre_install_truncate_visitor_hash(): void {
+		global $wpdb;
+		$table = Schema::events_table();
+		// phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared,WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching,WordPress.DB.DirectDatabaseQuery.SchemaChange
+		$exists = $wpdb->get_var( "SHOW TABLES LIKE '{$table}'" );
+		if ( $exists !== $table ) {
+			return; // First install — no rows to truncate.
+		}
+		// phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared,WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching
+		$wpdb->query( $wpdb->prepare( "UPDATE {$table} SET visitor_hash = SUBSTRING(visitor_hash, 1, %d)", Cookie::HASH_LENGTH ) );
 	}
 
 	/**

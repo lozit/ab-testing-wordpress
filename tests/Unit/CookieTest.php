@@ -79,7 +79,7 @@ final class CookieTest extends TestCase {
 		$first  = Cookie::visitor_hash();
 		$second = Cookie::visitor_hash();
 		$this->assertSame( $first, $second );
-		$this->assertSame( 64, strlen( $first ), 'sha256 hex digest is 64 chars.' );
+		$this->assertSame( Cookie::HASH_LENGTH, strlen( $first ), 'visitor_hash is truncated to HASH_LENGTH (16) hex chars for RGPD minimization.' );
 	}
 
 	public function test_visitor_hash_changes_with_ua(): void {
