@@ -275,6 +275,97 @@
 }
 
 .abtest-status-buttons .button { margin-right: 8px; }
+
+/* Variants editor (form) */
+.abtest-variants {
+	margin: 6px 0;
+}
+.abtest-variant-row {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	padding: 8px 12px;
+	margin-bottom: 8px;
+	background: #fafafa;
+	border: 1px solid #c3c4c7;
+	border-radius: 4px;
+}
+.abtest-variant-label {
+	display: inline-block;
+	width: 28px;
+	height: 28px;
+	line-height: 28px;
+	text-align: center;
+	font-weight: 700;
+	color: #fff;
+	background: #2271b1;
+	border-radius: 50%;
+	flex-shrink: 0;
+}
+.abtest-variant-row[data-index="0"] .abtest-variant-label { background: #50575e; }
+.abtest-variant-row[data-index="1"] .abtest-variant-label { background: #2271b1; }
+.abtest-variant-row[data-index="2"] .abtest-variant-label { background: #00a32a; }
+.abtest-variant-row[data-index="3"] .abtest-variant-label { background: #dba617; }
+.abtest-variant-select {
+	flex: 1;
+}
+.abtest-variant-remove {
+	color: #b32d2e !important;
+}
+.abtest-variant-help {
+	margin-left: 8px;
+	color: #50575e;
+}
+
+/* Variants cell in the list (stack vertical) */
+.abtest-variants-cell {
+	vertical-align: top !important;
+	padding: 8px !important;
+}
+.abtest-variants-stack {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+}
+.abtest-variant-line {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	flex-wrap: wrap;
+	font-size: 13px;
+}
+.abtest-variant-tag {
+	display: inline-block;
+	width: 22px;
+	height: 22px;
+	line-height: 22px;
+	text-align: center;
+	font-weight: 700;
+	font-size: 11px;
+	color: #fff;
+	border-radius: 50%;
+	flex-shrink: 0;
+}
+.abtest-variant-tag-a { background: #50575e; }
+.abtest-variant-tag-b { background: #2271b1; }
+.abtest-variant-tag-c { background: #00a32a; }
+.abtest-variant-tag-d { background: #dba617; }
+.abtest-variant-title {
+	font-weight: 600;
+	max-width: 220px;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+.abtest-variant-counts {
+	color: #50575e;
+	font-size: 12px;
+}
+.abtest-variant-baseline {
+	font-style: italic;
+	color: #50575e;
+	font-size: 11px;
+}
 .abtest-btn-running.button-primary { background: #00a32a; border-color: #00831f; }
 .abtest-btn-running.button-primary:hover { background: #008a23; }
 .abtest-btn-paused.button-primary  { background: #dba617; border-color: #b88a13; color: #fff; }

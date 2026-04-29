@@ -100,4 +100,89 @@ final class StatsTest extends TestCase {
 		$this->assertSame( 0, $out['A']['impressions'] );
 		$this->assertSame( 0, $out['A']['conversions'] );
 	}
+
+	// ----- compute_multi() — N variants, pairwise vs baseline, Bonferroni -----
+
+	public function test_compute_multi_returns_per_variant_rates(): void {
+		$out = Stats::compute_multi(
+			[
+				'A' => [ 'impressions' => 1000, 'conversions' => 50 ],
+				'B' => [ 'impressions' => 1000, 'conversions' => 80 ],
+				'C' => [ 'impressions' => 1000, 'conversions' => 65 ],
+			],
+			[ 'A', 'B', 'C' ]
+		);
+		$this->assertEqualsWithDelta( 0.05,  $out['variants']['A']['rate'], 1e-9 );
+		$this->assertEqualsWithDelta( 0.08,  $out['variants']['B']['rate'], 1e-9 );
+		$this->assertEqualsWithDelta( 0.065, $out['variants']['C']['rate'], 1e-9 );
+		$this->assertSame( 'A', $out['baseline'] );
+	}
+
+	public function test_compute_multi_pairwise_comparisons_only_for_non_baseline(): void {
+		$out = Stats::compute_multi(
+			[
+				'A' => [ 'impressions' => 1000, 'conversions' => 50 ],
+				'B' => [ 'impressions' => 1000, 'conversions' => 80 ],
+				'C' => [ 'impressions' => 1000, 'conversions' => 65 ],
+			],
+			[ 'A', 'B', 'C' ]
+		);
+		$this->assertArrayHasKey( 'B', $out['comparisons'] );
+		$this->assertArrayHasKey( 'C', $out['comparisons'] );
+		$this->assertArrayNotHasKey( 'A', $out['comparisons'] ); // baseline never compared to itself
+		$this->assertSame( 'A', $out['comparisons']['B']['vs'] );
+		$this->assertSame( 'A', $out['comparisons']['C']['vs'] );
+	}
+
+	public function test_compute_multi_applies_bonferroni_correction(): void {
+		// 3 variants → 2 comparisons → alpha = 0.05 / 2 = 0.025
+		$out = Stats::compute_multi(
+			[
+				'A' => [ 'impressions' => 1000, 'conversions' => 50 ],
+				'B' => [ 'impressions' => 1000, 'conversions' => 80 ],
+				'C' => [ 'impressions' => 1000, 'conversions' => 65 ],
+			],
+			[ 'A', 'B', 'C' ]
+		);
+		$this->assertEqualsWithDelta( 0.025, $out['alpha'], 1e-9 );
+
+		// 4 variants → 3 comparisons → alpha = 0.05 / 3 ≈ 0.0167
+		$out4 = Stats::compute_multi(
+			[
+				'A' => [ 'impressions' => 100, 'conversions' => 5 ],
+				'B' => [ 'impressions' => 100, 'conversions' => 6 ],
+				'C' => [ 'impressions' => 100, 'conversions' => 7 ],
+				'D' => [ 'impressions' => 100, 'conversions' => 8 ],
+			],
+			[ 'A', 'B', 'C', 'D' ]
+		);
+		$this->assertEqualsWithDelta( 0.05 / 3, $out4['alpha'], 1e-9 );
+	}
+
+	public function test_compute_multi_picks_best_only_among_significant_variants(): void {
+		// Strong, clearly significant signal for B (n=5000 each, A=5%, B=8%).
+		// C has high rate but tiny sample → not significant even at alpha=0.025.
+		$out = Stats::compute_multi(
+			[
+				'A' => [ 'impressions' => 5000, 'conversions' => 250 ],   // 5%
+				'B' => [ 'impressions' => 5000, 'conversions' => 400 ],   // 8% — should pass Bonferroni-corrected p
+				'C' => [ 'impressions' => 25,   'conversions' => 3 ],     // 12% but n=25 is way too small
+			],
+			[ 'A', 'B', 'C' ]
+		);
+		$this->assertTrue( $out['comparisons']['B']['significant'] );
+		$this->assertFalse( $out['comparisons']['C']['significant'] );
+		$this->assertSame( 'B', $out['best'] );
+	}
+
+	public function test_compute_multi_baseline_only_returns_no_comparisons(): void {
+		$out = Stats::compute_multi(
+			[ 'A' => [ 'impressions' => 1000, 'conversions' => 50 ] ],
+			[ 'A' ]
+		);
+		$this->assertSame( 'A', $out['baseline'] );
+		$this->assertNull( $out['best'] );
+		$this->assertEmpty( $out['comparisons'] );
+		$this->assertCount( 1, $out['variants'] );
+	}
 }

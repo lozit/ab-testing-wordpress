@@ -19,13 +19,25 @@ final class Cookie {
 		return self::PREFIX . $experiment_id;
 	}
 
-	public static function get_variant( int $experiment_id ): ?string {
+	/**
+	 * Read the variant cookie. Optionally validate against an allowed list of labels
+	 * — useful when an experiment was reduced from 4 variants down to 2 mid-flight,
+	 * a returning visitor with an obsolete cookie should be re-assigned.
+	 *
+	 * @param string[] $allowed_labels Uppercase labels (e.g. ['A','B','C']). Empty = no constraint, accept A/B (legacy).
+	 */
+	public static function get_variant( int $experiment_id, array $allowed_labels = [] ): ?string {
 		$key = self::name( $experiment_id );
 		if ( ! isset( $_COOKIE[ $key ] ) ) {
 			return null;
 		}
 		$value = sanitize_key( wp_unslash( $_COOKIE[ $key ] ) );
-		return ( 'a' === $value || 'b' === $value ) ? strtoupper( $value ) : null;
+		$upper = strtoupper( $value );
+
+		if ( empty( $allowed_labels ) ) {
+			return ( 'A' === $upper || 'B' === $upper ) ? $upper : null;
+		}
+		return in_array( $upper, $allowed_labels, true ) ? $upper : null;
 	}
 
 	public static function set_variant( int $experiment_id, string $variant, int $days = 30 ): void {
@@ -33,7 +45,8 @@ final class Cookie {
 			return;
 		}
 		$variant = strtoupper( $variant );
-		if ( 'A' !== $variant && 'B' !== $variant ) {
+		// Accept any uppercase letter A–Z (we only use A–D today, but defensive).
+		if ( strlen( $variant ) !== 1 || $variant < 'A' || $variant > 'Z' ) {
 			return;
 		}
 		setcookie(
@@ -68,13 +81,20 @@ final class Cookie {
 	}
 
 	/**
-	 * Pick a variant deterministically from a seed (used in tests) or randomly.
+	 * Pick uniformly at random from the supplied list of variant labels.
+	 * Default list ['A','B'] preserves the original A/B 50/50 behaviour.
+	 *
+	 * @param string[] $labels   Allowed labels, e.g. ['A','B','C'].
+	 * @param int|null $seed     Optional seed for deterministic tests.
 	 */
-	public static function pick_variant( ?int $seed = null ): string {
+	public static function pick_variant( array $labels = [ 'A', 'B' ], ?int $seed = null ): string {
+		if ( empty( $labels ) ) {
+			return 'A';
+		}
 		if ( null !== $seed ) {
 			mt_srand( $seed );
 		}
-		$choice = ( mt_rand( 0, 1 ) === 0 ) ? 'A' : 'B';
+		$choice = $labels[ mt_rand( 0, count( $labels ) - 1 ) ];
 		if ( null !== $seed ) {
 			mt_srand();
 		}

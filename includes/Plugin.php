@@ -73,8 +73,47 @@ final class Plugin {
 		if ( '' === (string) $installed || version_compare( (string) $installed, '1.1.0', '<' ) ) {
 			add_action( 'init', [ self::class, 'migrate_to_1_1_0' ], 20 );
 		}
+		if ( '' === (string) $installed || version_compare( (string) $installed, '1.2.0', '<' ) ) {
+			add_action( 'init', [ self::class, 'migrate_to_1_2_0' ], 21 );
+		}
 
 		update_option( 'abtest_db_version', ABTEST_DB_VERSION );
+	}
+
+	/**
+	 * Backfill `_abtest_variants` from the legacy `_abtest_control_id` /
+	 * `_abtest_variant_id` pair so multi-variant code paths have a uniform shape.
+	 * Idempotent : skips experiments that already have a variants array set.
+	 */
+	public static function migrate_to_1_2_0(): void {
+		$ids = get_posts(
+			[
+				'post_type'      => Experiment::POST_TYPE,
+				'post_status'    => 'publish',
+				'posts_per_page' => -1,
+				'fields'         => 'ids',
+			]
+		);
+		foreach ( $ids as $id ) {
+			$id  = (int) $id;
+			$existing = get_post_meta( $id, Experiment::META_VARIANTS, true );
+			if ( is_array( $existing ) && ! empty( $existing ) ) {
+				continue;
+			}
+
+			$variants = [];
+			$control  = (int) get_post_meta( $id, Experiment::META_CONTROL_ID, true );
+			if ( $control > 0 ) {
+				$variants[] = [ 'post_id' => $control ];
+			}
+			$variant = (int) get_post_meta( $id, Experiment::META_VARIANT_ID, true );
+			if ( $variant > 0 ) {
+				$variants[] = [ 'post_id' => $variant ];
+			}
+			if ( ! empty( $variants ) ) {
+				Experiment::set_variants( $id, $variants );
+			}
+		}
 	}
 
 	/**

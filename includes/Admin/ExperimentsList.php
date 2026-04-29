@@ -140,10 +140,8 @@ final class ExperimentsList {
 							<tr>
 								<th style="width:24%;"><?php esc_html_e( 'Experiment', 'ab-testing-wordpress' ); ?></th>
 								<th style="width:10%;"><?php esc_html_e( 'Status', 'ab-testing-wordpress' ); ?></th>
-								<th style="width:18%;"><?php esc_html_e( 'Variant A', 'ab-testing-wordpress' ); ?></th>
-								<th style="width:18%;"><?php esc_html_e( 'Variant B', 'ab-testing-wordpress' ); ?></th>
-								<th style="width:8%;"><?php esc_html_e( 'Lift', 'ab-testing-wordpress' ); ?></th>
-								<th style="width:10%;"><?php esc_html_e( 'Significance', 'ab-testing-wordpress' ); ?></th>
+								<th style="width:46%;"><?php esc_html_e( 'Variants', 'ab-testing-wordpress' ); ?></th>
+								<th style="width:8%;"><?php esc_html_e( 'Best', 'ab-testing-wordpress' ); ?></th>
 								<th style="width:12%;"><?php esc_html_e( 'Actions', 'ab-testing-wordpress' ); ?></th>
 							</tr>
 						</thead>
@@ -171,17 +169,20 @@ final class ExperimentsList {
 	}
 
 	private static function render_experiment_row( \WP_Post $experiment, array $counts, ?\WP_Post $running_other = null ): void {
-		$exp_id      = (int) $experiment->ID;
-		$status      = Experiment::get_status( $exp_id );
-		$control_id  = Experiment::get_control_id( $exp_id );
-		$variant_id  = Experiment::get_variant_id( $exp_id );
-		$started_at  = (string) get_post_meta( $exp_id, Experiment::META_STARTED_AT, true );
-		$ended_at    = (string) get_post_meta( $exp_id, Experiment::META_ENDED_AT, true );
-		$row_counts  = $counts[ $exp_id ] ?? [
-			'A' => [ 'impressions' => 0, 'conversions' => 0 ],
-			'B' => [ 'impressions' => 0, 'conversions' => 0 ],
-		];
-		$stats       = Stats::compute( $row_counts );
+		$exp_id        = (int) $experiment->ID;
+		$status        = Experiment::get_status( $exp_id );
+		$variant_specs = Experiment::get_variants( $exp_id );
+		$labels        = array_map( static fn( $v ) => (string) $v['label'], $variant_specs );
+		$started_at    = (string) get_post_meta( $exp_id, Experiment::META_STARTED_AT, true );
+		$ended_at      = (string) get_post_meta( $exp_id, Experiment::META_ENDED_AT, true );
+		$row_counts    = $counts[ $exp_id ] ?? [];
+		// Ensure all configured labels have entries in counts (zero-fill missing).
+		foreach ( $labels as $lbl ) {
+			if ( ! isset( $row_counts[ $lbl ] ) ) {
+				$row_counts[ $lbl ] = [ 'impressions' => 0, 'conversions' => 0 ];
+			}
+		}
+		$multi = Stats::compute_multi( $row_counts, ! empty( $labels ) ? $labels : [ 'A' ] );
 
 		$edit_url = add_query_arg(
 			[ 'page' => Admin::menu_slug(), 'action' => 'edit', 'experiment' => $exp_id ],
@@ -218,68 +219,29 @@ final class ExperimentsList {
 				<?php endif; ?>
 			</td>
 			<td><span class="abtest-status abtest-status-<?php echo esc_attr( $status ); ?>"><?php echo esc_html( ucfirst( $status ) ); ?></span></td>
-			<td>
-				<?php echo esc_html( get_the_title( $control_id ) ?: '—' ); ?><br>
-				<small class="abtest-muted">
-					<?php
-					/* translators: 1: conversions, 2: impressions, 3: rate as percent */
-					printf(
-						esc_html__( '%1$d / %2$d (%3$s)', 'ab-testing-wordpress' ),
-						(int) $stats['A']['conversions'],
-						(int) $stats['A']['impressions'],
-						esc_html( self::pct( (float) $stats['A']['rate'] ) )
-					);
-					?>
-				</small>
+			<td class="abtest-variants-cell">
+				<?php self::render_variants_cell( $variant_specs, $multi ); ?>
 			</td>
 			<td>
-				<?php if ( $variant_id > 0 ) : ?>
-					<?php echo esc_html( get_the_title( $variant_id ) ?: '—' ); ?><br>
-					<small class="abtest-muted">
+				<?php if ( count( $labels ) <= 1 ) : ?>
+					<span class="abtest-badge abtest-badge-baseline"><?php esc_html_e( 'Baseline', 'ab-testing-wordpress' ); ?></span>
+				<?php elseif ( null !== $multi['best'] ) : ?>
+					<span class="abtest-badge abtest-badge-sig">
 						<?php
 						printf(
-							esc_html__( '%1$d / %2$d (%3$s)', 'ab-testing-wordpress' ),
-							(int) $stats['B']['conversions'],
-							(int) $stats['B']['impressions'],
-							esc_html( self::pct( (float) $stats['B']['rate'] ) )
+							/* translators: %s: variant label */
+							esc_html__( '%s wins', 'ab-testing-wordpress' ),
+							esc_html( (string) $multi['best'] )
 						);
 						?>
-					</small>
-				<?php else : ?>
-					<em class="abtest-baseline-note"><?php esc_html_e( 'baseline mode', 'ab-testing-wordpress' ); ?></em>
-				<?php endif; ?>
-			</td>
-			<td>
-				<?php if ( $variant_id > 0 ) : ?>
-					<span class="abtest-lift abtest-lift-<?php echo $stats['lift'] >= 0 ? 'pos' : 'neg'; ?>">
-						<?php echo esc_html( self::pct( (float) $stats['lift'], true ) ); ?>
 					</span>
-					<?php if ( (int) $stats['B']['impressions'] > 0 && (int) $stats['A']['impressions'] > 0 ) : ?>
-						<br><small class="abtest-muted abtest-ci">
-							<?php
-							/* translators: 1: low bound, 2: high bound */
-							printf(
-								esc_html__( '95%% CI: [%1$s ; %2$s]', 'ab-testing-wordpress' ),
-								esc_html( self::pct( (float) $stats['lift_ci_low'], true ) ),
-								esc_html( self::pct( (float) $stats['lift_ci_high'], true ) )
-							);
-							?>
-						</small>
-					<?php endif; ?>
 				<?php else : ?>
-					<span class="abtest-muted">—</span>
-				<?php endif; ?>
-			</td>
-			<td>
-				<?php if ( $variant_id <= 0 ) : ?>
-					<span class="abtest-badge abtest-badge-baseline"><?php esc_html_e( 'Baseline', 'ab-testing-wordpress' ); ?></span>
-				<?php elseif ( $stats['significant'] ) : ?>
-					<span class="abtest-badge abtest-badge-sig"><?php esc_html_e( 'Significant', 'ab-testing-wordpress' ); ?></span>
-				<?php else : ?>
-					<span class="abtest-badge abtest-badge-nosig"><?php
-						/* translators: %s: p-value formatted */
-						printf( esc_html__( 'p = %s', 'ab-testing-wordpress' ), esc_html( number_format_i18n( (float) $stats['p_value'], 3 ) ) );
-					?></span>
+					<span class="abtest-muted abtest-ci">
+						<?php
+						/* translators: %s: alpha threshold */
+						printf( esc_html__( 'No winner (α=%s)', 'ab-testing-wordpress' ), esc_html( number_format_i18n( (float) $multi['alpha'], 3 ) ) );
+						?>
+					</span>
 				<?php endif; ?>
 			</td>
 			<td class="abtest-actions">
@@ -467,6 +429,67 @@ final class ExperimentsList {
 				<a href="<?php echo esc_url( add_query_arg( array_merge( $base, [ 'show' => 'all' ] ), admin_url( 'admin.php' ) ) ); ?>"><?php esc_html_e( 'Show all', 'ab-testing-wordpress' ); ?></a>
 			<?php endif; ?>
 		</p>
+		<?php
+	}
+
+	/**
+	 * Stack each variant in the cell with its own page title, counts, and (for non-baseline)
+	 * lift + 95% CI vs the baseline. Significant comparisons get the green badge.
+	 *
+	 * @param array<int, array{label:string, post_id:int}> $variant_specs
+	 * @param array $multi   Output of Stats::compute_multi()
+	 */
+	private static function render_variants_cell( array $variant_specs, array $multi ): void {
+		if ( empty( $variant_specs ) ) {
+			echo '<em class="abtest-muted">—</em>';
+			return;
+		}
+		$baseline = (string) ( $multi['baseline'] ?? 'A' );
+		?>
+		<div class="abtest-variants-stack">
+			<?php foreach ( $variant_specs as $v ) :
+				$label = (string) $v['label'];
+				$pid   = (int) $v['post_id'];
+				$row   = $multi['variants'][ $label ] ?? [ 'impressions' => 0, 'conversions' => 0, 'rate' => 0 ];
+				$cmp   = $multi['comparisons'][ $label ] ?? null; // null for baseline
+				?>
+				<div class="abtest-variant-line">
+					<span class="abtest-variant-tag abtest-variant-tag-<?php echo esc_attr( strtolower( $label ) ); ?>"><?php echo esc_html( $label ); ?></span>
+					<span class="abtest-variant-title"><?php echo esc_html( get_the_title( $pid ) ?: '—' ); ?></span>
+					<span class="abtest-variant-counts">
+						<?php
+						printf(
+							esc_html__( '%1$d / %2$d (%3$s)', 'ab-testing-wordpress' ),
+							(int) $row['conversions'],
+							(int) $row['impressions'],
+							esc_html( self::pct( (float) $row['rate'] ) )
+						);
+						?>
+					</span>
+					<?php if ( $label === $baseline ) : ?>
+						<span class="abtest-variant-baseline"><?php esc_html_e( 'baseline', 'ab-testing-wordpress' ); ?></span>
+					<?php elseif ( $cmp ) : ?>
+						<span class="abtest-lift abtest-lift-<?php echo $cmp['lift'] >= 0 ? 'pos' : 'neg'; ?>">
+							<?php echo esc_html( self::pct( (float) $cmp['lift'], true ) ); ?>
+						</span>
+						<?php if ( $cmp['significant'] ) : ?>
+							<span class="abtest-badge abtest-badge-sig"><?php esc_html_e( 'sig', 'ab-testing-wordpress' ); ?></span>
+						<?php else : ?>
+							<span class="abtest-muted abtest-ci">
+								<?php
+								/* translators: 1: low bound, 2: high bound */
+								printf(
+									esc_html__( '95%% CI [%1$s ; %2$s]', 'ab-testing-wordpress' ),
+									esc_html( self::pct( (float) $cmp['lift_ci_low'], true ) ),
+									esc_html( self::pct( (float) $cmp['lift_ci_high'], true ) )
+								);
+								?>
+							</span>
+						<?php endif; ?>
+					<?php endif; ?>
+				</div>
+			<?php endforeach; ?>
+		</div>
 		<?php
 	}
 

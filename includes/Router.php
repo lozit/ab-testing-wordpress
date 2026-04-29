@@ -59,7 +59,8 @@ final class Router {
 		$bypass         = $this->should_bypass();
 		$has_underlying = $this->url_resolves_to_public_page( $path );
 		$preview        = $this->read_preview_param();
-		$has_variant_b  = Experiment::get_variant_id( $experiment->ID ) > 0;
+		$labels         = Experiment::get_variant_labels( $experiment->ID ); // e.g. ['A'] (baseline) or ['A','B','C']
+		$has_variant_b  = in_array( 'B', $labels, true );
 
 		// If we're bypassing AND no explicit preview param AND the URL has an underlying public page,
 		// step out and let WP serve that page (admins see the original content as visitors did).
@@ -76,28 +77,26 @@ final class Router {
 		}
 
 		// Variant pick:
-		// - Bypass (admin/bot): force A or B based on preview param (B requires variant exists).
-		// - Baseline mode (no variant B configured): everyone gets A, cookie still set so conversion endpoint works.
-		// - Standard A/B: cookie persists 50/50 random pick.
+		// - Bypass (admin/bot): force the previewed label if valid, else first label (A).
+		// - Baseline mode (only one variant): everyone gets it; cookie set so conversion endpoint works.
+		// - Standard multi-variant: persistent cookie, uniform-random pick from configured labels.
 		if ( $bypass ) {
-			$variant = ( $has_variant_b && 'b' === $preview ) ? 'B' : 'A';
-		} elseif ( ! $has_variant_b ) {
-			$variant = 'A';
-			if ( null === Cookie::get_variant( $experiment->ID ) ) {
-				Cookie::set_variant( $experiment->ID, 'A' );
+			$preview_upper = strtoupper( $preview );
+			$variant       = in_array( $preview_upper, $labels, true ) ? $preview_upper : ( $labels[0] ?? 'A' );
+		} elseif ( count( $labels ) <= 1 ) {
+			$variant = $labels[0] ?? 'A';
+			if ( null === Cookie::get_variant( $experiment->ID, $labels ) ) {
+				Cookie::set_variant( $experiment->ID, $variant );
 			}
 		} else {
-			$variant = Cookie::get_variant( $experiment->ID );
+			$variant = Cookie::get_variant( $experiment->ID, $labels );
 			if ( null === $variant ) {
-				$variant = Cookie::pick_variant();
+				$variant = Cookie::pick_variant( $labels );
 				Cookie::set_variant( $experiment->ID, $variant );
 			}
 		}
 
-		$variant_post_id = ( 'B' === $variant )
-			? Experiment::get_variant_id( $experiment->ID )
-			: Experiment::get_control_id( $experiment->ID );
-
+		$variant_post_id = Experiment::get_variant_post_id( $experiment->ID, $variant );
 		if ( $variant_post_id <= 0 ) {
 			return;
 		}

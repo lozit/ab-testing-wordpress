@@ -16,6 +16,34 @@ defined( 'ABSPATH' ) || exit;
 final class ExperimentEdit {
 
 	/**
+	 * Render a single variant row : label badge + page select + remove button.
+	 * The label is positional (A for index 0, B for 1, etc.) and re-numbered by JS on add/remove.
+	 *
+	 * @param \WP_Post[] $pages
+	 */
+	public static function render_variant_row( int $index, int $selected_post_id, array $pages ): void {
+		$label = Experiment::VARIANT_LABELS[ $index ] ?? '?';
+		?>
+		<div class="abtest-variant-row" data-index="<?php echo (int) $index; ?>">
+			<span class="abtest-variant-label"><?php echo esc_html( $label ); ?></span>
+			<select name="variants[<?php echo (int) $index; ?>][post_id]" class="abtest-variant-select">
+				<option value="0"><?php echo 0 === $index ? esc_html__( '— Select page —', 'ab-testing-wordpress' ) : esc_html__( '— None / remove —', 'ab-testing-wordpress' ); ?></option>
+				<?php foreach ( $pages as $page ) : ?>
+					<option value="<?php echo (int) $page->ID; ?>" <?php selected( (int) $page->ID, $selected_post_id ); ?>>
+						<?php echo esc_html( get_the_title( $page ) . ' (#' . $page->ID . ' · ' . $page->post_status . ')' ); ?>
+					</option>
+				<?php endforeach; ?>
+			</select>
+			<?php if ( $index > 0 ) : ?>
+				<button type="button" class="button-link abtest-variant-remove" aria-label="<?php esc_attr_e( 'Remove this variant', 'ab-testing-wordpress' ); ?>">
+					<?php esc_html_e( 'Remove', 'ab-testing-wordpress' ); ?>
+				</button>
+			<?php endif; ?>
+		</div>
+		<?php
+	}
+
+	/**
 	 * Render a single row of the URL-scripts editor. Used by both the initial render
 	 * and (as a JS template via data-attribute) by the "Add script" button.
 	 */
@@ -62,6 +90,7 @@ final class ExperimentEdit {
 			$test_path = Experiment::normalize_path( sanitize_text_field( wp_unslash( $_GET['test_url'] ) ) );
 		}
 
+		$variants     = $is_new ? [] : Experiment::get_variants( $experiment_id );
 		$control_id   = $is_new ? 0 : Experiment::get_control_id( $experiment_id );
 		$variant_id   = $is_new ? 0 : Experiment::get_variant_id( $experiment_id );
 		$goal         = $is_new ? [ 'type' => Experiment::GOAL_URL, 'value' => '' ] : Experiment::get_goal( $experiment_id );
@@ -140,32 +169,31 @@ final class ExperimentEdit {
 						</td>
 					</tr>
 					<tr>
-						<th scope="row"><label for="abtest-control"><?php esc_html_e( 'Variant A (control)', 'ab-testing-wordpress' ); ?></label></th>
+						<th scope="row"><?php esc_html_e( 'Variants', 'ab-testing-wordpress' ); ?></th>
 						<td>
-							<select id="abtest-control" name="control_id" required>
-								<option value=""><?php esc_html_e( '— Select —', 'ab-testing-wordpress' ); ?></option>
-								<?php foreach ( $pages as $page ) : ?>
-									<option value="<?php echo (int) $page->ID; ?>" <?php selected( (int) $page->ID, $control_id ); ?>>
-										<?php echo esc_html( get_the_title( $page ) . ' (#' . $page->ID . ' · ' . $page->post_status . ')' ); ?>
-									</option>
+							<?php
+							// Build the rendered list: at least 1 row (Variant A), up to MAX_VARIANTS.
+							$rendered = ! empty( $variants ) ? $variants : [ [ 'label' => 'A', 'post_id' => 0 ] ];
+							?>
+							<div class="abtest-variants" data-max="<?php echo (int) Experiment::MAX_VARIANTS; ?>">
+								<?php foreach ( $rendered as $i => $v ) : ?>
+									<?php self::render_variant_row( $i, (int) ( $v['post_id'] ?? 0 ), $pages ); ?>
 								<?php endforeach; ?>
-							</select>
-							<p class="description"><?php esc_html_e( 'Content source for variant A. The page itself is hidden from public access while the test runs.', 'ab-testing-wordpress' ); ?></p>
-						</td>
-					</tr>
-					<tr>
-						<th scope="row"><label for="abtest-variant"><?php esc_html_e( 'Variant B (optional)', 'ab-testing-wordpress' ); ?></label></th>
-						<td>
-							<select id="abtest-variant" name="variant_id">
-								<option value=""><?php esc_html_e( '— None (baseline mode) —', 'ab-testing-wordpress' ); ?></option>
-								<?php foreach ( $pages as $page ) : ?>
-									<option value="<?php echo (int) $page->ID; ?>" <?php selected( (int) $page->ID, $variant_id ); ?>>
-										<?php echo esc_html( get_the_title( $page ) . ' (#' . $page->ID . ' · ' . $page->post_status . ')' ); ?>
-									</option>
-								<?php endforeach; ?>
-							</select>
-							<p class="description">
-								<?php esc_html_e( 'Leave empty to run in baseline mode — every visitor sees Variant A while you measure the baseline conversion rate. Add a Variant B later to start the actual A/B split.', 'ab-testing-wordpress' ); ?>
+							</div>
+							<p>
+								<button type="button" class="button button-secondary abtest-variant-add"
+								        <?php echo count( $rendered ) >= Experiment::MAX_VARIANTS ? 'disabled' : ''; ?>>
+									+ <?php esc_html_e( 'Add variant', 'ab-testing-wordpress' ); ?>
+								</button>
+								<span class="abtest-variant-help description">
+									<?php
+									printf(
+										/* translators: %d: max variants */
+										esc_html__( 'Up to %d variants. Visitors are split equally (1/N each). Variant A is the baseline — others are compared against it. Leave only A to run in baseline mode.', 'ab-testing-wordpress' ),
+										(int) Experiment::MAX_VARIANTS
+									);
+									?>
+								</span>
 							</p>
 						</td>
 					</tr>

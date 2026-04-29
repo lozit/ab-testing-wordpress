@@ -138,6 +138,18 @@ final class StatsController {
 			$counts   = self::counts_for_experiment( $exp_id, $from, $to );
 			$computed = Stats::compute( $counts );
 
+			$variants_meta = Experiment::get_variants( $exp_id );
+			$labels        = array_map( static fn( $v ) => (string) $v['label'], $variants_meta );
+			if ( empty( $labels ) ) {
+				$labels = [ 'A' ];
+			}
+			foreach ( $labels as $lbl ) {
+				if ( ! isset( $counts[ $lbl ] ) ) {
+					$counts[ $lbl ] = [ 'impressions' => 0, 'conversions' => 0 ];
+				}
+			}
+			$multi = Stats::compute_multi( $counts, $labels );
+
 			$entry = [
 				'id'          => $exp_id,
 				'title'       => (string) get_the_title( $exp ),
@@ -145,15 +157,23 @@ final class StatsController {
 				'status'      => Experiment::get_status( $exp_id ),
 				'started_at'  => (string) get_post_meta( $exp_id, Experiment::META_STARTED_AT, true ),
 				'ended_at'    => (string) get_post_meta( $exp_id, Experiment::META_ENDED_AT, true ),
-				'control_id'  => Experiment::get_control_id( $exp_id ),
-				'variant_id'  => Experiment::get_variant_id( $exp_id ),
+				'control_id'  => Experiment::get_control_id( $exp_id ),     // legacy, == variants[0].post_id
+				'variant_id'  => Experiment::get_variant_id( $exp_id ),     // legacy, == variants[1].post_id
+				'variants'    => $variants_meta,                             // [{label:'A', post_id:5}, ...]
 				'goal'        => Experiment::get_goal( $exp_id ),
 				'stats'       => [
-					'A'           => $computed['A'],
-					'B'           => $computed['B'],
-					'lift'        => $computed['lift'],
-					'p_value'     => $computed['p_value'],
-					'significant' => $computed['significant'],
+					// Multi-variant payload (preferred for new clients).
+					'variants'    => $multi['variants'],
+					'comparisons' => $multi['comparisons'],
+					'baseline'    => $multi['baseline'],
+					'best'        => $multi['best'],
+					'alpha'       => $multi['alpha'],
+					// Legacy A/B keys for back-compat — same numbers as comparisons['B'] when B exists.
+					'A'            => $computed['A'],
+					'B'            => $computed['B'],
+					'lift'         => $computed['lift'],
+					'p_value'      => $computed['p_value'],
+					'significant'  => $computed['significant'],
 					'lift_ci_low'  => $computed['lift_ci_low'],
 					'lift_ci_high' => $computed['lift_ci_high'],
 					'diff_ci_low'  => $computed['diff_ci_low'],

@@ -161,6 +161,8 @@ final class Stats {
 		$out = [
 			'A' => [ 'impressions' => 0, 'conversions' => 0 ],
 			'B' => [ 'impressions' => 0, 'conversions' => 0 ],
+			'C' => [ 'impressions' => 0, 'conversions' => 0 ],
+			'D' => [ 'impressions' => 0, 'conversions' => 0 ],
 		];
 		foreach ( (array) $rows as $row ) {
 			$variant = strtoupper( (string) $row['variant'] );
@@ -179,7 +181,99 @@ final class Stats {
 	}
 
 	/**
-	 * Pure function — easy to unit-test.
+	 * Multi-variant stats (the real engine — used by all callers, including the
+	 * legacy A/B keys returned by `compute()` for back-compat).
+	 *
+	 * For each variant beyond the baseline (first one in $labels), runs a
+	 * two-proportion z-test vs the baseline with a Bonferroni-corrected alpha
+	 * (alpha / (k-1) where k = number of variants). Returns per-variant rates
+	 * + a comparisons map keyed by the non-baseline label.
+	 *
+	 * @param array<string, array{impressions:int,conversions:int}> $counts Keyed by label (A/B/C/D).
+	 * @param string[] $labels Active labels for this experiment, in declaration order.
+	 *                         The first one is the baseline. Defaults to ['A','B'] for back-compat.
+	 *
+	 * @return array{
+	 *     variants: array<string, array{impressions:int,conversions:int,rate:float}>,
+	 *     comparisons: array<string, array{vs:string,lift:float,p_value:float,significant:bool,diff_ci_low:float,diff_ci_high:float,lift_ci_low:float,lift_ci_high:float}>,
+	 *     baseline: string,
+	 *     best: ?string,
+	 *     alpha: float
+	 * }
+	 */
+	public static function compute_multi( array $counts, array $labels = [ 'A', 'B' ] ): array {
+		if ( empty( $labels ) ) {
+			$labels = [ 'A' ];
+		}
+
+		// Per-variant rates.
+		$variants = [];
+		foreach ( $labels as $label ) {
+			$imp = max( 0, (int) ( $counts[ $label ]['impressions'] ?? 0 ) );
+			$cv  = max( 0, (int) ( $counts[ $label ]['conversions'] ?? 0 ) );
+			$variants[ $label ] = [
+				'impressions' => $imp,
+				'conversions' => $cv,
+				'rate'        => $imp > 0 ? $cv / $imp : 0.0,
+			];
+		}
+
+		$baseline       = $labels[0];
+		$baseline_imp   = (int) $variants[ $baseline ]['impressions'];
+		$baseline_cv    = (int) $variants[ $baseline ]['conversions'];
+		$baseline_rate  = (float) $variants[ $baseline ]['rate'];
+		$num_comparisons = max( 1, count( $labels ) - 1 );
+		$alpha          = 0.05 / $num_comparisons; // Bonferroni
+
+		// Pairwise comparison vs baseline for each non-baseline variant.
+		$comparisons = [];
+		$best_label  = null;
+		$best_rate   = $baseline_rate;
+		foreach ( $labels as $label ) {
+			if ( $label === $baseline ) {
+				continue;
+			}
+			$v_imp = (int) $variants[ $label ]['impressions'];
+			$v_cv  = (int) $variants[ $label ]['conversions'];
+			$v_rate = (float) $variants[ $label ]['rate'];
+
+			$lift = $baseline_rate > 0 ? ( $v_rate - $baseline_rate ) / $baseline_rate : 0.0;
+			[ , $p ] = self::z_test_two_proportions( $baseline_cv, $baseline_imp, $v_cv, $v_imp );
+			[ $diff_low, $diff_high ] = self::diff_confidence_interval_95( $baseline_cv, $baseline_imp, $v_cv, $v_imp );
+			$lift_low  = $baseline_rate > 0 ? $diff_low / $baseline_rate : 0.0;
+			$lift_high = $baseline_rate > 0 ? $diff_high / $baseline_rate : 0.0;
+
+			$is_significant = $p < $alpha && $baseline_imp > 0 && $v_imp > 0;
+			$comparisons[ $label ] = [
+				'vs'           => $baseline,
+				'lift'         => $lift,
+				'p_value'      => $p,
+				'significant'  => $is_significant,
+				'diff_ci_low'  => $diff_low,
+				'diff_ci_high' => $diff_high,
+				'lift_ci_low'  => $lift_low,
+				'lift_ci_high' => $lift_high,
+			];
+
+			if ( $is_significant && $v_rate > $best_rate ) {
+				$best_label = $label;
+				$best_rate  = $v_rate;
+			}
+		}
+
+		return [
+			'variants'    => $variants,
+			'comparisons' => $comparisons,
+			'baseline'    => $baseline,
+			'best'        => $best_label,
+			'alpha'       => $alpha,
+		];
+	}
+
+	/**
+	 * Back-compat wrapper — returns the v0.4-shaped output (A, B, lift, p_value, …)
+	 * built on top of `compute_multi()`. Still in use by ExperimentsList, CSV export,
+	 * REST API. Multi-variant callers should prefer `compute_multi()`.
 	 *
 	 * @param array{A:array{impressions:int,conversions:int},B:array{impressions:int,conversions:int}} $counts
 	 */

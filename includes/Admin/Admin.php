@@ -110,6 +110,13 @@ final class Admin {
 				ABTEST_VERSION,
 				true
 			);
+			wp_enqueue_script(
+				'abtest-variants-editor',
+				ABTEST_PLUGIN_URL . 'assets/js/variants-editor.js',
+				[],
+				ABTEST_VERSION,
+				true
+			);
 		}
 
 		// Webhooks editor JS only on the settings screen.
@@ -158,13 +165,29 @@ final class Admin {
 		$id          = isset( $_POST['experiment_id'] ) ? absint( wp_unslash( $_POST['experiment_id'] ) ) : 0;
 		$title       = isset( $_POST['title'] ) ? sanitize_text_field( wp_unslash( $_POST['title'] ) ) : '';
 		$test_url    = isset( $_POST['test_url'] ) ? Experiment::normalize_path( sanitize_text_field( wp_unslash( $_POST['test_url'] ) ) ) : '';
-		$control_id  = isset( $_POST['control_id'] ) ? absint( wp_unslash( $_POST['control_id'] ) ) : 0;
-		$variant_id  = isset( $_POST['variant_id'] ) ? absint( wp_unslash( $_POST['variant_id'] ) ) : 0;
 		$goal_type   = isset( $_POST['goal_type'] ) ? sanitize_key( wp_unslash( $_POST['goal_type'] ) ) : Experiment::GOAL_URL;
 		$goal_value  = isset( $_POST['goal_value'] ) ? sanitize_text_field( wp_unslash( $_POST['goal_value'] ) ) : '';
 		$status      = isset( $_POST['status'] ) ? sanitize_key( wp_unslash( $_POST['status'] ) ) : Experiment::STATUS_DRAFT;
 
-		$errors = $this->validate( $title, $test_url, $control_id, $variant_id, $goal_type, $goal_value, $status, $id );
+		// Read variants[] array. Each entry has [post_id]; positional → label A/B/C/D.
+		$variants_input = isset( $_POST['variants'] ) && is_array( $_POST['variants'] ) ? wp_unslash( $_POST['variants'] ) : []; // phpcs:ignore WordPress.Security.ValidatedSanitizedInput
+		$variants_clean = [];
+		foreach ( $variants_input as $entry ) {
+			if ( ! is_array( $entry ) ) {
+				continue;
+			}
+			$pid = isset( $entry['post_id'] ) ? absint( $entry['post_id'] ) : 0;
+			if ( $pid > 0 ) {
+				$variants_clean[] = [ 'post_id' => $pid ];
+			}
+			if ( count( $variants_clean ) >= Experiment::MAX_VARIANTS ) {
+				break;
+			}
+		}
+		$control_id = $variants_clean[0]['post_id'] ?? 0;
+		$variant_id = $variants_clean[1]['post_id'] ?? 0; // first non-baseline (used by validate + ensure_private)
+
+		$errors = $this->validate_multi( $title, $test_url, $variants_clean, $goal_type, $goal_value, $status, $id );
 		if ( ! empty( $errors ) ) {
 			$this->redirect_with_notice( 'error', implode( ' | ', $errors ), $id ? [ 'action' => 'edit', 'experiment' => $id ] : [ 'action' => 'new' ] );
 		}
@@ -191,8 +214,7 @@ final class Admin {
 		$baseline_for_transition = ( '' === $prev_status ) ? Experiment::STATUS_DRAFT : $prev_status;
 
 		update_post_meta( $id, Experiment::META_TEST_URL, $test_url );
-		update_post_meta( $id, Experiment::META_CONTROL_ID, $control_id );
-		update_post_meta( $id, Experiment::META_VARIANT_ID, $variant_id );
+		Experiment::set_variants( $id, $variants_clean );  // also syncs legacy control_id / variant_id meta
 		update_post_meta( $id, Experiment::META_GOAL_TYPE, $goal_type );
 		update_post_meta( $id, Experiment::META_GOAL_VALUE, $goal_value );
 
@@ -238,11 +260,10 @@ final class Admin {
 			}
 		}
 
-		// When the experiment is running, hide the variant pages from public view.
+		// When the experiment is running, hide every variant page from public view.
 		if ( Experiment::STATUS_RUNNING === $effective_status ) {
-			\Abtest\Plugin::ensure_private_status( $control_id );
-			if ( $variant_id > 0 ) {
-				\Abtest\Plugin::ensure_private_status( $variant_id );
+			foreach ( $variants_clean as $v ) {
+				\Abtest\Plugin::ensure_private_status( (int) $v['post_id'] );
 			}
 		}
 
@@ -490,6 +511,57 @@ final class Admin {
 			return '/' === $path; // root path is allowed but unusual
 		}
 		return true;
+	}
+
+	/**
+	 * Multi-variant aware validation. Replaces the old A/B-specific `validate()`.
+	 *
+	 * @param array<int, array{post_id:int}> $variants
+	 */
+	private function validate_multi( string $title, string $test_url, array $variants, string $goal_type, string $goal_value, string $status, int $editing_id = 0 ): array {
+		$errors = [];
+		if ( '' === $title ) {
+			$errors[] = __( 'Title is required.', 'ab-testing-wordpress' );
+		}
+		if ( '' === $test_url ) {
+			$errors[] = __( 'Test URL is required.', 'ab-testing-wordpress' );
+		} elseif ( ! self::is_valid_test_url( $test_url ) ) {
+			$errors[] = __( 'Test URL must look like /path/ (lowercase, letters, numbers, hyphens, underscores).', 'ab-testing-wordpress' );
+		}
+
+		if ( empty( $variants ) ) {
+			$errors[] = __( 'Variant A is required.', 'ab-testing-wordpress' );
+		} else {
+			$seen = [];
+			foreach ( $variants as $i => $v ) {
+				$pid = (int) $v['post_id'];
+				if ( $pid <= 0 || ! get_post( $pid ) ) {
+					$errors[] = sprintf(
+						/* translators: %s: variant label */
+						__( 'Variant %s page does not exist.', 'ab-testing-wordpress' ),
+						Experiment::VARIANT_LABELS[ $i ] ?? '?'
+					);
+					continue;
+				}
+				if ( isset( $seen[ $pid ] ) ) {
+					$errors[] = __( 'Each variant must use a different page — duplicates detected.', 'ab-testing-wordpress' );
+					break;
+				}
+				$seen[ $pid ] = true;
+			}
+		}
+
+		if ( ! in_array( $goal_type, [ Experiment::GOAL_URL, Experiment::GOAL_SELECTOR ], true ) ) {
+			$errors[] = __( 'Invalid goal type.', 'ab-testing-wordpress' );
+		}
+		if ( '' === $goal_value ) {
+			$errors[] = __( 'Goal value is required.', 'ab-testing-wordpress' );
+		}
+		$valid_status = [ Experiment::STATUS_DRAFT, Experiment::STATUS_RUNNING, Experiment::STATUS_PAUSED, Experiment::STATUS_ENDED ];
+		if ( ! in_array( $status, $valid_status, true ) ) {
+			$errors[] = __( 'Invalid status.', 'ab-testing-wordpress' );
+		}
+		return $errors;
 	}
 
 	private function validate( string $title, string $test_url, int $control_id, int $variant_id, string $goal_type, string $goal_value, string $status, int $editing_id = 0 ): array {

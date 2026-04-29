@@ -72,79 +72,93 @@ final class CsvExport {
 		// UTF-8 BOM so Excel renders accents correctly.
 		fwrite( $out, "\xEF\xBB\xBF" );
 
-		// Header row.
-		fputcsv(
-			$out,
-			[
-				'experiment_id',
-				'title',
-				'test_url',
-				'status',
-				'started_at',
-				'ended_at',
-				'control_id',
-				'control_title',
-				'variant_id',
-				'variant_title',
-				'goal_type',
-				'goal_value',
-				'A_impressions',
-				'A_conversions',
-				'A_rate',
-				'B_impressions',
-				'B_conversions',
-				'B_rate',
-				'lift',
-				'p_value',
-				'significant',
-				'lift_ci_low',
-				'lift_ci_high',
-				'period_from',
-				'period_to',
-			]
-		);
+		// Header row : per-variant columns up to MAX_VARIANTS, plus pairwise vs A.
+		$header = [
+			'experiment_id', 'title', 'test_url', 'status',
+			'started_at', 'ended_at',
+			'goal_type', 'goal_value',
+			'baseline', 'best_variant', 'alpha',
+			'period_from', 'period_to',
+		];
+		foreach ( Experiment::VARIANT_LABELS as $label ) {
+			$header[] = $label . '_post_id';
+			$header[] = $label . '_title';
+			$header[] = $label . '_impressions';
+			$header[] = $label . '_conversions';
+			$header[] = $label . '_rate';
+		}
+		// Pairwise comparison columns vs baseline (A) — for B, C, D.
+		foreach ( array_slice( Experiment::VARIANT_LABELS, 1 ) as $label ) {
+			$header[] = $label . '_lift';
+			$header[] = $label . '_p_value';
+			$header[] = $label . '_significant';
+			$header[] = $label . '_lift_ci_low';
+			$header[] = $label . '_lift_ci_high';
+		}
+		fputcsv( $out, $header );
 
 		foreach ( $experiments as $exp ) {
-			$exp_id = (int) $exp->ID;
-			$row_counts = $counts[ $exp_id ] ?? [
-				'A' => [ 'impressions' => 0, 'conversions' => 0 ],
-				'B' => [ 'impressions' => 0, 'conversions' => 0 ],
-			];
-			$stats      = Stats::compute( $row_counts );
-			$control_id = Experiment::get_control_id( $exp_id );
-			$variant_id = Experiment::get_variant_id( $exp_id );
-			$goal       = Experiment::get_goal( $exp_id );
+			$exp_id      = (int) $exp->ID;
+			$row_counts  = $counts[ $exp_id ] ?? [];
+			$variants    = Experiment::get_variants( $exp_id );
+			$labels      = array_map( static fn( $v ) => (string) $v['label'], $variants );
+			if ( empty( $labels ) ) {
+				$labels = [ 'A' ];
+			}
+			foreach ( $labels as $lbl ) {
+				if ( ! isset( $row_counts[ $lbl ] ) ) {
+					$row_counts[ $lbl ] = [ 'impressions' => 0, 'conversions' => 0 ];
+				}
+			}
+			$multi = Stats::compute_multi( $row_counts, $labels );
+			$goal  = Experiment::get_goal( $exp_id );
 
-			fputcsv(
-				$out,
-				[
-					$exp_id,
-					(string) get_the_title( $exp ),
-					(string) get_post_meta( $exp_id, Experiment::META_TEST_URL, true ),
-					Experiment::get_status( $exp_id ),
-					(string) get_post_meta( $exp_id, Experiment::META_STARTED_AT, true ),
-					(string) get_post_meta( $exp_id, Experiment::META_ENDED_AT, true ),
-					$control_id,
-					$control_id > 0 ? (string) get_the_title( $control_id ) : '',
-					$variant_id,
-					$variant_id > 0 ? (string) get_the_title( $variant_id ) : '',
-					(string) $goal['type'],
-					(string) $goal['value'],
-					(int) $stats['A']['impressions'],
-					(int) $stats['A']['conversions'],
-					self::format_float( (float) $stats['A']['rate'] ),
-					(int) $stats['B']['impressions'],
-					(int) $stats['B']['conversions'],
-					self::format_float( (float) $stats['B']['rate'] ),
-					self::format_float( (float) $stats['lift'] ),
-					self::format_float( (float) $stats['p_value'] ),
-					$stats['significant'] ? '1' : '0',
-					self::format_float( (float) $stats['lift_ci_low'] ),
-					self::format_float( (float) $stats['lift_ci_high'] ),
-					$from,
-					$to,
-				]
-			);
+			$row = [
+				$exp_id,
+				(string) get_the_title( $exp ),
+				(string) get_post_meta( $exp_id, Experiment::META_TEST_URL, true ),
+				Experiment::get_status( $exp_id ),
+				(string) get_post_meta( $exp_id, Experiment::META_STARTED_AT, true ),
+				(string) get_post_meta( $exp_id, Experiment::META_ENDED_AT, true ),
+				(string) $goal['type'],
+				(string) $goal['value'],
+				(string) $multi['baseline'],
+				(string) ( $multi['best'] ?? '' ),
+				self::format_float( (float) $multi['alpha'] ),
+				$from,
+				$to,
+			];
+
+			// Per-variant columns (configured ones get values, missing ones get empty cells).
+			$by_label = [];
+			foreach ( $variants as $v ) {
+				$by_label[ (string) $v['label'] ] = (int) $v['post_id'];
+			}
+			foreach ( Experiment::VARIANT_LABELS as $label ) {
+				$pid = $by_label[ $label ] ?? 0;
+				$st  = $multi['variants'][ $label ] ?? [ 'impressions' => 0, 'conversions' => 0, 'rate' => 0 ];
+				$row[] = $pid;
+				$row[] = $pid > 0 ? (string) get_the_title( $pid ) : '';
+				$row[] = (int) $st['impressions'];
+				$row[] = (int) $st['conversions'];
+				$row[] = self::format_float( (float) $st['rate'] );
+			}
+
+			// Pairwise comparison columns vs baseline (A).
+			foreach ( array_slice( Experiment::VARIANT_LABELS, 1 ) as $label ) {
+				$cmp = $multi['comparisons'][ $label ] ?? null;
+				if ( null === $cmp ) {
+					$row[] = ''; $row[] = ''; $row[] = ''; $row[] = ''; $row[] = '';
+				} else {
+					$row[] = self::format_float( (float) $cmp['lift'] );
+					$row[] = self::format_float( (float) $cmp['p_value'] );
+					$row[] = $cmp['significant'] ? '1' : '0';
+					$row[] = self::format_float( (float) $cmp['lift_ci_low'] );
+					$row[] = self::format_float( (float) $cmp['lift_ci_high'] );
+				}
+			}
+
+			fputcsv( $out, $row );
 		}
 
 		fclose( $out );

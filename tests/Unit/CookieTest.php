@@ -14,7 +14,7 @@ use PHPUnit\Framework\TestCase;
 
 final class CookieTest extends TestCase {
 
-	public function test_picks_only_a_or_b(): void {
+	public function test_picks_only_a_or_b_by_default(): void {
 		for ( $i = 0; $i < 100; $i++ ) {
 			$variant = Cookie::pick_variant();
 			$this->assertContains( $variant, [ 'A', 'B' ] );
@@ -22,15 +22,15 @@ final class CookieTest extends TestCase {
 	}
 
 	public function test_seed_makes_assignment_deterministic(): void {
-		$first  = Cookie::pick_variant( 42 );
-		$second = Cookie::pick_variant( 42 );
+		$first  = Cookie::pick_variant( [ 'A', 'B' ], 42 );
+		$second = Cookie::pick_variant( [ 'A', 'B' ], 42 );
 		$this->assertSame( $first, $second );
 	}
 
 	public function test_different_seeds_can_yield_different_variants(): void {
 		$samples = [];
 		for ( $seed = 0; $seed < 50; $seed++ ) {
-			$samples[] = Cookie::pick_variant( $seed );
+			$samples[] = Cookie::pick_variant( [ 'A', 'B' ], $seed );
 		}
 		$unique = array_unique( $samples );
 		$this->assertCount( 2, $unique, 'Across many seeds, both A and B should appear.' );
@@ -45,6 +45,32 @@ final class CookieTest extends TestCase {
 		$ratio = $counts['A'] / 10000;
 		$this->assertGreaterThan( 0.40, $ratio );
 		$this->assertLessThan( 0.60, $ratio );
+	}
+
+	public function test_picks_only_from_provided_labels(): void {
+		for ( $i = 0; $i < 200; $i++ ) {
+			$variant = Cookie::pick_variant( [ 'A', 'B', 'C', 'D' ] );
+			$this->assertContains( $variant, [ 'A', 'B', 'C', 'D' ] );
+		}
+	}
+
+	public function test_three_variant_split_is_roughly_uniform(): void {
+		$counts = [ 'A' => 0, 'B' => 0, 'C' => 0 ];
+		for ( $i = 0; $i < 9000; $i++ ) {
+			++$counts[ Cookie::pick_variant( [ 'A', 'B', 'C' ] ) ];
+		}
+		// Each variant should be in roughly [25%, 41%] (1/3 ± buffer for variance).
+		foreach ( $counts as $label => $n ) {
+			$ratio = $n / 9000;
+			$this->assertGreaterThan( 0.28, $ratio, "Variant $label too low: $ratio" );
+			$this->assertLessThan( 0.39, $ratio, "Variant $label too high: $ratio" );
+		}
+	}
+
+	public function test_baseline_mode_returns_first_label_only(): void {
+		for ( $i = 0; $i < 50; $i++ ) {
+			$this->assertSame( 'A', Cookie::pick_variant( [ 'A' ] ) );
+		}
 	}
 
 	public function test_visitor_hash_is_stable_for_same_request_data(): void {

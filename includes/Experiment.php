@@ -16,8 +16,9 @@ final class Experiment {
 	public const POST_TYPE = 'ab_experiment';
 
 	public const META_TEST_URL          = '_abtest_test_url';
-	public const META_CONTROL_ID        = '_abtest_control_id';
-	public const META_VARIANT_ID        = '_abtest_variant_id';
+	public const META_VARIANTS          = '_abtest_variants';
+	public const META_CONTROL_ID        = '_abtest_control_id';      // legacy (mirrors variants[0])
+	public const META_VARIANT_ID        = '_abtest_variant_id';      // legacy (mirrors variants[1])
 	public const META_GOAL_TYPE         = '_abtest_goal_type';
 	public const META_GOAL_VALUE        = '_abtest_goal_value';
 	public const META_STATUS            = '_abtest_status';
@@ -25,6 +26,9 @@ final class Experiment {
 	public const META_ENDED_AT          = '_abtest_ended_at';
 	public const META_SCHEDULE_START_AT = '_abtest_schedule_start_at';
 	public const META_SCHEDULE_END_AT   = '_abtest_schedule_end_at';
+
+	public const MAX_VARIANTS = 4;
+	public const VARIANT_LABELS = [ 'A', 'B', 'C', 'D' ];
 
 	public const STATUS_DRAFT   = 'draft';
 	public const STATUS_RUNNING = 'running';
@@ -56,6 +60,7 @@ final class Experiment {
 		);
 
 		register_post_meta( self::POST_TYPE, self::META_TEST_URL, [ 'type' => 'string', 'single' => true, 'show_in_rest' => false ] );
+		register_post_meta( self::POST_TYPE, self::META_VARIANTS, [ 'type' => 'array', 'single' => true, 'show_in_rest' => false ] );
 		register_post_meta( self::POST_TYPE, self::META_CONTROL_ID, [ 'type' => 'integer', 'single' => true, 'show_in_rest' => false ] );
 		register_post_meta( self::POST_TYPE, self::META_VARIANT_ID, [ 'type' => 'integer', 'single' => true, 'show_in_rest' => false ] );
 		register_post_meta( self::POST_TYPE, self::META_GOAL_TYPE, [ 'type' => 'string', 'single' => true, 'show_in_rest' => false ] );
@@ -132,12 +137,107 @@ final class Experiment {
 		return (string) get_post_meta( $experiment_id, self::META_TEST_URL, true );
 	}
 
+	/**
+	 * Return the experiment's variants as a list of [label, post_id] pairs.
+	 * Falls back to the legacy single-pair meta (control_id + variant_id) if
+	 * `_abtest_variants` was never populated (pre-v1.2.0 experiments).
+	 *
+	 * @return array<int, array{label:string, post_id:int}>
+	 */
+	public static function get_variants( int $experiment_id ): array {
+		$raw = get_post_meta( $experiment_id, self::META_VARIANTS, true );
+		if ( is_array( $raw ) && ! empty( $raw ) ) {
+			$out = [];
+			foreach ( $raw as $entry ) {
+				if ( ! is_array( $entry ) ) {
+					continue;
+				}
+				$label   = isset( $entry['label'] ) ? (string) $entry['label'] : '';
+				$post_id = isset( $entry['post_id'] ) ? (int) $entry['post_id'] : 0;
+				if ( '' !== $label && $post_id > 0 ) {
+					$out[] = [ 'label' => $label, 'post_id' => $post_id ];
+				}
+			}
+			if ( ! empty( $out ) ) {
+				return $out;
+			}
+		}
+
+		// Legacy fallback : reconstruct from control_id + variant_id.
+		$out = [];
+		$control = (int) get_post_meta( $experiment_id, self::META_CONTROL_ID, true );
+		if ( $control > 0 ) {
+			$out[] = [ 'label' => 'A', 'post_id' => $control ];
+		}
+		$variant = (int) get_post_meta( $experiment_id, self::META_VARIANT_ID, true );
+		if ( $variant > 0 ) {
+			$out[] = [ 'label' => 'B', 'post_id' => $variant ];
+		}
+		return $out;
+	}
+
+	/**
+	 * Persist the variants list, syncing the legacy single-pair meta for
+	 * back-compat code that still calls get_control_id / get_variant_id.
+	 *
+	 * @param array<int, array{label:string, post_id:int}> $variants
+	 */
+	public static function set_variants( int $experiment_id, array $variants ): void {
+		$clean = [];
+		foreach ( $variants as $i => $entry ) {
+			if ( $i >= self::MAX_VARIANTS ) {
+				break;
+			}
+			$post_id = isset( $entry['post_id'] ) ? (int) $entry['post_id'] : 0;
+			if ( $post_id <= 0 ) {
+				continue;
+			}
+			$label   = self::VARIANT_LABELS[ count( $clean ) ] ?? '';
+			if ( '' === $label ) {
+				break;
+			}
+			$clean[] = [ 'label' => $label, 'post_id' => $post_id ];
+		}
+
+		update_post_meta( $experiment_id, self::META_VARIANTS, $clean );
+
+		// Sync legacy meta keys for any older callers still reading them directly.
+		$control = $clean[0]['post_id'] ?? 0;
+		$variant = $clean[1]['post_id'] ?? 0;
+		update_post_meta( $experiment_id, self::META_CONTROL_ID, (int) $control );
+		update_post_meta( $experiment_id, self::META_VARIANT_ID, (int) $variant );
+	}
+
+	public static function get_variant_post_id( int $experiment_id, string $label ): int {
+		foreach ( self::get_variants( $experiment_id ) as $v ) {
+			if ( strcasecmp( (string) $v['label'], $label ) === 0 ) {
+				return (int) $v['post_id'];
+			}
+		}
+		return 0;
+	}
+
+	/**
+	 * Return the labels (e.g. ['A','B','C']) configured on this experiment.
+	 *
+	 * @return string[]
+	 */
+	public static function get_variant_labels( int $experiment_id ): array {
+		$out = [];
+		foreach ( self::get_variants( $experiment_id ) as $v ) {
+			$out[] = (string) $v['label'];
+		}
+		return $out;
+	}
+
 	public static function get_control_id( int $experiment_id ): int {
-		return (int) get_post_meta( $experiment_id, self::META_CONTROL_ID, true );
+		$variants = self::get_variants( $experiment_id );
+		return isset( $variants[0]['post_id'] ) ? (int) $variants[0]['post_id'] : 0;
 	}
 
 	public static function get_variant_id( int $experiment_id ): int {
-		return (int) get_post_meta( $experiment_id, self::META_VARIANT_ID, true );
+		$variants = self::get_variants( $experiment_id );
+		return isset( $variants[1]['post_id'] ) ? (int) $variants[1]['post_id'] : 0;
 	}
 
 	public static function get_status( int $experiment_id ): string {

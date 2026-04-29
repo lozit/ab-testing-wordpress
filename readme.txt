@@ -4,7 +4,7 @@ Tags: ab testing, split testing, conversion, analytics
 Requires at least: 6.0
 Tested up to: 6.5
 Requires PHP: 8.1
-Stable tag: 0.4.0
+Stable tag: 0.5.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -96,6 +96,16 @@ No. Logged-in users with `edit_posts` capability are bypassed and always see the
 v1 only swaps the entire page (the variant must be a separate post). Block-level and product-level testing are on the roadmap.
 
 == Changelog ==
+
+= 0.5.0 =
+* Multi-variant tests up to 4 variants (A/B/C/D) with equal split (1/N each).
+* Stats engine supports pairwise comparisons vs baseline + Bonferroni-corrected alpha.
+* Schema migration v1.2.0 — auto-backfills `_abtest_variants` from legacy control_id/variant_id pair.
+* Admin form: dynamic variants list (add/remove rows up to MAX_VARIANTS).
+* Experiments list: variants stacked vertically per row with lift + 95% CI vs baseline.
+* CSV export extended with per-variant + pairwise columns.
+* REST API stats response now includes `variants`, `comparisons`, `baseline`, `best`, `alpha`.
+* Back-compat: legacy `control_id`/`variant_id` accessors and meta still work; legacy A/B keys still in compute() output.
 
 = 0.4.0 =
 * URL-decoupled experiments — `test_url` independent from variant pages.
