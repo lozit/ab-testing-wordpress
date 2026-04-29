@@ -59,7 +59,13 @@ final class HtmlImport {
 					<tr>
 						<th scope="row"><label for="abtest-html-file"><?php esc_html_e( 'HTML file', 'ab-testing-wordpress' ); ?></label></th>
 						<td>
-							<input type="file" id="abtest-html-file" name="html_file" accept=".html,.htm" required>
+							<div class="abtest-html-dropzone" data-max-bytes="<?php echo (int) self::max_bytes(); ?>">
+								<input type="file" id="abtest-html-file" name="html_file" accept=".html,.htm" required>
+								<p class="abtest-html-dropzone-hint">
+									<?php esc_html_e( 'Drop a .html file here, or click to browse.', 'ab-testing-wordpress' ); ?>
+								</p>
+								<p class="abtest-html-dropzone-meta" hidden></p>
+							</div>
 							<p class="description">
 								<?php
 								printf(
@@ -69,6 +75,13 @@ final class HtmlImport {
 								);
 								?>
 							</p>
+						</td>
+					</tr>
+					<tr class="abtest-html-preview-row" hidden>
+						<th scope="row"><?php esc_html_e( 'Preview', 'ab-testing-wordpress' ); ?></th>
+						<td>
+							<p class="description"><?php esc_html_e( 'Rendered as it will appear on the published page (sandboxed iframe — local scripts run in isolation, but external resources are blocked).', 'ab-testing-wordpress' ); ?></p>
+							<iframe class="abtest-html-preview-frame" sandbox="allow-scripts" srcdoc="" loading="lazy" title="<?php esc_attr_e( 'HTML preview', 'ab-testing-wordpress' ); ?>"></iframe>
 						</td>
 					</tr>
 					<tr>

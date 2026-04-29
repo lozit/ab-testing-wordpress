@@ -72,8 +72,8 @@
 - [x] **Export CSV** des experiments + stats — bouton dans la liste, respecte filtres date + show, BOM UTF-8 (Excel)
 - [x] **Scheduling auto** via WP-Cron (hourly tick) — `_abtest_schedule_start_at` / `_abtest_schedule_end_at` meta + UI datetime-local + soft-conflict skip
 - [x] **Confidence interval** 95% (Wald) affiché à côté du lift
-- [ ] Preview HTML avant upload
-- [ ] Drag & drop file picker
+- [x] **Preview HTML avant upload** (iframe sandbox srcdoc rendu en live à la sélection)
+- [x] **Drag & drop file picker** (drop zone visuelle avec hover state, taille + extension validées côté client)
 - [x] **Filtre période** (from/to + presets 7/30 jours/all-time) sur stats + chart
 - [x] **Filtre default "running only"** sur les URLs (cache les URLs sans exp running, toggle "Show all")
 

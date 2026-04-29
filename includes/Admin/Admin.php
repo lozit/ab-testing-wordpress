@@ -129,6 +129,17 @@ final class Admin {
 				true
 			);
 		}
+
+		// HTML import editor (drag & drop + preview iframe) only on the import screen.
+		if ( 'import' === $action ) {
+			wp_enqueue_script(
+				'abtest-html-import-editor',
+				ABTEST_PLUGIN_URL . 'assets/js/html-import-editor.js',
+				[],
+				ABTEST_VERSION,
+				true
+			);
+		}
 	}
 
 	public function render(): void {
