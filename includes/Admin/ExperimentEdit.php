@@ -255,6 +255,40 @@ final class ExperimentEdit {
 							<p class="description"><?php esc_html_e( 'When this date passes, a Running experiment auto-transitions to Ended.', 'ab-testing-wordpress' ); ?></p>
 						</td>
 					</tr>
+					<?php
+					$target_devices   = $is_new ? [] : Experiment::get_target_devices( $experiment_id );
+					$target_countries = $is_new ? [] : Experiment::get_target_countries( $experiment_id );
+					?>
+					<tr>
+						<th scope="row"><?php esc_html_e( 'Device targeting (optional)', 'ab-testing-wordpress' ); ?></th>
+						<td>
+							<fieldset class="abtest-target-devices">
+								<?php
+								$device_labels = [
+									'mobile'  => __( 'Mobile', 'ab-testing-wordpress' ),
+									'tablet'  => __( 'Tablet', 'ab-testing-wordpress' ),
+									'desktop' => __( 'Desktop', 'ab-testing-wordpress' ),
+								];
+								foreach ( $device_labels as $value => $label ) :
+									?>
+									<label>
+										<input type="checkbox" name="target_devices[]" value="<?php echo esc_attr( $value ); ?>" <?php checked( in_array( $value, $target_devices, true ) ); ?>>
+										<?php echo esc_html( $label ); ?>
+									</label>
+								<?php endforeach; ?>
+							</fieldset>
+							<p class="description"><?php esc_html_e( 'Leave all unchecked to include every device. Detection uses the visitor\'s User-Agent.', 'ab-testing-wordpress' ); ?></p>
+						</td>
+					</tr>
+					<tr>
+						<th scope="row"><label for="abtest-target-countries"><?php esc_html_e( 'Country targeting (optional)', 'ab-testing-wordpress' ); ?></label></th>
+						<td>
+							<input type="text" id="abtest-target-countries" name="target_countries" class="regular-text code" value="<?php echo esc_attr( implode( ', ', $target_countries ) ); ?>" placeholder="FR, BE, CH">
+							<p class="description">
+								<?php esc_html_e( 'Comma-separated ISO 3166-1 alpha-2 codes (e.g. FR, BE, CH). Leave empty to target everyone. Requires a country header from your CDN/host (Cloudflare, Kinsta) or the `abtest_visitor_country` filter — visitors with unknown country are excluded when targeting is set.', 'ab-testing-wordpress' ); ?>
+							</p>
+						</td>
+					</tr>
 				</table>
 
 				<?php

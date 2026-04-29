@@ -85,7 +85,7 @@
 ### Capacités produit
 - [x] **Multi-variantes A/B/C/D** — split équitable, pairwise vs baseline + Bonferroni, UI dynamique add/remove, migration auto v1.2.0, REST + CSV étendus
 - [ ] Block-level testing (bloc Gutenberg unique au lieu de page entière)
-- [ ] Targeting (geo, device, segment)
+- [x] **Targeting** (devices mobile/tablet/desktop + ISO countries via Cloudflare/Kinsta CF-IPCountry header ou filter `abtest_visitor_country`) — Router gate, admin/bot bypass exempt, 9 unit tests sur le UA classifier
 - [ ] Multi-langue (WPML / Polylang)
 
 ### Qualité technique

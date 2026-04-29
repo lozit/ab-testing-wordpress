@@ -56,6 +56,42 @@ if ( ! function_exists( 'is_ssl' ) ) {
 	}
 }
 
+// Minimal hook stubs for unit tests that touch add_filter / apply_filters / remove_filter.
+$GLOBALS['__abtest_filters'] = [];
+if ( ! function_exists( 'add_filter' ) ) {
+	function add_filter( string $tag, callable $cb, int $priority = 10, int $accepted_args = 1 ): bool {
+		$GLOBALS['__abtest_filters'][ $tag ][] = $cb;
+		return true;
+	}
+}
+if ( ! function_exists( 'remove_filter' ) ) {
+	function remove_filter( string $tag, callable $cb, int $priority = 10 ): bool {
+		if ( ! isset( $GLOBALS['__abtest_filters'][ $tag ] ) ) {
+			return false;
+		}
+		foreach ( $GLOBALS['__abtest_filters'][ $tag ] as $i => $registered ) {
+			if ( $registered === $cb ) {
+				unset( $GLOBALS['__abtest_filters'][ $tag ][ $i ] );
+				return true;
+			}
+		}
+		return false;
+	}
+}
+if ( ! function_exists( 'apply_filters' ) ) {
+	function apply_filters( string $tag, $value ) {
+		$args = func_get_args();
+		array_shift( $args ); // drop $tag
+		if ( empty( $GLOBALS['__abtest_filters'][ $tag ] ) ) {
+			return $value;
+		}
+		foreach ( $GLOBALS['__abtest_filters'][ $tag ] as $cb ) {
+			$args[0] = $cb( ...$args );
+		}
+		return $args[0];
+	}
+}
+
 // Composer autoload if available, else fallback.
 $composer_autoload = dirname( __DIR__ ) . '/vendor/autoload.php';
 if ( is_readable( $composer_autoload ) ) {

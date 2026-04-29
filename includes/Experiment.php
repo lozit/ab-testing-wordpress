@@ -26,6 +26,10 @@ final class Experiment {
 	public const META_ENDED_AT          = '_abtest_ended_at';
 	public const META_SCHEDULE_START_AT = '_abtest_schedule_start_at';
 	public const META_SCHEDULE_END_AT   = '_abtest_schedule_end_at';
+	public const META_TARGET_DEVICES    = '_abtest_target_devices';
+	public const META_TARGET_COUNTRIES  = '_abtest_target_countries';
+
+	public const DEVICES = [ 'mobile', 'tablet', 'desktop' ];
 
 	public const MAX_VARIANTS = 4;
 	public const VARIANT_LABELS = [ 'A', 'B', 'C', 'D' ];
@@ -70,6 +74,8 @@ final class Experiment {
 		register_post_meta( self::POST_TYPE, self::META_ENDED_AT, [ 'type' => 'string', 'single' => true, 'show_in_rest' => false ] );
 		register_post_meta( self::POST_TYPE, self::META_SCHEDULE_START_AT, [ 'type' => 'string', 'single' => true, 'show_in_rest' => false ] );
 		register_post_meta( self::POST_TYPE, self::META_SCHEDULE_END_AT, [ 'type' => 'string', 'single' => true, 'show_in_rest' => false ] );
+		register_post_meta( self::POST_TYPE, self::META_TARGET_DEVICES, [ 'type' => 'array', 'single' => true, 'show_in_rest' => false ] );
+		register_post_meta( self::POST_TYPE, self::META_TARGET_COUNTRIES, [ 'type' => 'array', 'single' => true, 'show_in_rest' => false ] );
 	}
 
 	/**
@@ -243,6 +249,37 @@ final class Experiment {
 	public static function get_status( int $experiment_id ): string {
 		$status = (string) get_post_meta( $experiment_id, self::META_STATUS, true );
 		return '' === $status ? self::STATUS_DRAFT : $status;
+	}
+
+	/**
+	 * @return string[] List of device categories targeted ('mobile', 'tablet', 'desktop'),
+	 *                  or empty array when no targeting (= every device).
+	 */
+	public static function get_target_devices( int $experiment_id ): array {
+		$raw = get_post_meta( $experiment_id, self::META_TARGET_DEVICES, true );
+		if ( ! is_array( $raw ) ) {
+			return [];
+		}
+		return array_values( array_intersect( $raw, self::DEVICES ) );
+	}
+
+	/**
+	 * @return string[] List of ISO 3166-1 alpha-2 country codes targeted,
+	 *                  or empty array when no targeting (= every country).
+	 */
+	public static function get_target_countries( int $experiment_id ): array {
+		$raw = get_post_meta( $experiment_id, self::META_TARGET_COUNTRIES, true );
+		if ( ! is_array( $raw ) ) {
+			return [];
+		}
+		$out = [];
+		foreach ( $raw as $code ) {
+			$norm = strtoupper( trim( (string) $code ) );
+			if ( preg_match( '/^[A-Z]{2}$/', $norm ) ) {
+				$out[] = $norm;
+			}
+		}
+		return array_values( array_unique( $out ) );
 	}
 
 	public static function get_goal( int $experiment_id ): array {

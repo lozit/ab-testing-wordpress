@@ -4,7 +4,7 @@ Tags: ab testing, split testing, conversion, analytics
 Requires at least: 6.0
 Tested up to: 6.5
 Requires PHP: 8.1
-Stable tag: 0.5.0
+Stable tag: 0.6.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -96,6 +96,13 @@ No. Logged-in users with `edit_posts` capability are bypassed and always see the
 v1 only swaps the entire page (the variant must be a separate post). Block-level and product-level testing are on the roadmap.
 
 == Changelog ==
+
+= 0.6.0 =
+* Targeting by device (mobile / tablet / desktop) and country (ISO codes).
+* HTML import: drag-and-drop dropzone + sandboxed iframe preview before submit.
+* Visitor device classified from User-Agent; country pulled from Cloudflare/Kinsta `CF-IPCountry` header (and similar X-* headers), with a `abtest_visitor_country` filter for custom geo plugins.
+* Targeting check happens server-side before any cookie is set or impression logged — out-of-target visitors fall through (no variant assigned).
+* Admin/bot bypass mode is exempt from targeting so preview is independent of the previewer's device/country.
 
 = 0.5.0 =
 * Multi-variant tests up to 4 variants (A/B/C/D) with equal split (1/N each).

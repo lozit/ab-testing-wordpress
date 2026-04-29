@@ -62,6 +62,12 @@ final class Router {
 		$labels         = Experiment::get_variant_labels( $experiment->ID ); // e.g. ['A'] (baseline) or ['A','B','C']
 		$has_variant_b  = in_array( 'B', $labels, true );
 
+		// Targeting (geo / device) — gate visitors who don't match. Admins/bots in bypass
+		// mode always pass so preview is independent of the previewer's device/country.
+		if ( ! $bypass && ! Targeting::matches( $experiment->ID ) ) {
+			return;
+		}
+
 		// If we're bypassing AND no explicit preview param AND the URL has an underlying public page,
 		// step out and let WP serve that page (admins see the original content as visitors did).
 		// If the URL is custom (no real page behind), we MUST still serve a variant — otherwise

@@ -278,6 +278,21 @@ final class Admin {
 			}
 		}
 
+		// Persist targeting (devices + countries).
+		$raw_devices = isset( $_POST['target_devices'] ) && is_array( $_POST['target_devices'] ) ? wp_unslash( $_POST['target_devices'] ) : []; // phpcs:ignore WordPress.Security.ValidatedSanitizedInput
+		$clean_devices = array_values( array_intersect( array_map( 'sanitize_key', $raw_devices ), Experiment::DEVICES ) );
+		update_post_meta( $id, Experiment::META_TARGET_DEVICES, $clean_devices );
+
+		$raw_countries = isset( $_POST['target_countries'] ) ? sanitize_text_field( wp_unslash( $_POST['target_countries'] ) ) : '';
+		$clean_countries = [];
+		foreach ( preg_split( '/[\s,;]+/', $raw_countries ) as $code ) {
+			$norm = strtoupper( trim( (string) $code ) );
+			if ( preg_match( '/^[A-Z]{2}$/', $norm ) ) {
+				$clean_countries[] = $norm;
+			}
+		}
+		update_post_meta( $id, Experiment::META_TARGET_COUNTRIES, array_values( array_unique( $clean_countries ) ) );
+
 		// Persist optional schedule_start_at / schedule_end_at (datetime-local format).
 		$raw_start = isset( $_POST['schedule_start_at'] ) ? sanitize_text_field( wp_unslash( $_POST['schedule_start_at'] ) ) : '';
 		$raw_end   = isset( $_POST['schedule_end_at'] ) ? sanitize_text_field( wp_unslash( $_POST['schedule_end_at'] ) ) : '';
