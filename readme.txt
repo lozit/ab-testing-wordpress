@@ -2,9 +2,9 @@
 Contributors: guillaumeferrari
 Tags: ab testing, split testing, conversion, analytics
 Requires at least: 6.0
-Tested up to: 6.5
+Tested up to: 6.9
 Requires PHP: 8.1
-Stable tag: 0.8.0
+Stable tag: 0.8.1
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -106,6 +106,11 @@ No. Logged-in users with `edit_posts` capability are bypassed and always see the
 v1 only swaps the entire page (the variant must be a separate post). Block-level and product-level testing are on the roadmap.
 
 == Changelog ==
+
+= 0.8.1 =
+* Tested up to WordPress 6.9 (was 6.5). Local dev env (wp-env) and the wp-phpunit test suite both bumped to 6.9.4.
+* Fixed PHP notice on WP 6.7+ ("_load_textdomain_just_in_time was called incorrectly") — load_plugin_textdomain now runs on `init` priority 0 instead of `plugins_loaded`.
+* Performance: `GET /wp-json/abtest/v1/stats` now runs a single batched SQL query for N experiments instead of N individual queries (N+1 → 1). New public `Stats::raw_counts_for_experiments()` powers both the REST endpoint and the admin list — same SQL path everywhere.
 
 = 0.8.0 =
 * Privacy & consent gating (GDPR): new "Require consent" toggle in Settings — when on, the plugin sets no cookie and logs no event until the `abtest_visitor_has_consent` filter returns true. Without consent, visitors silently see Variant A (same path as out-of-target). Off by default, no breaking change.

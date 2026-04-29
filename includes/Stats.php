@@ -147,37 +147,76 @@ final class Stats {
 	}
 
 	public static function raw_counts( int $experiment_id ): array {
-		global $wpdb;
-		$table = Schema::events_table();
+		$batch = self::raw_counts_for_experiments( [ $experiment_id ] );
+		return $batch[ $experiment_id ] ?? self::empty_variant_counts();
+	}
 
+	/**
+	 * Single SQL fetching counts for N experiments in one round-trip.
+	 *
+	 * Returns map keyed by experiment_id. Each entry is the same shape as
+	 * raw_counts() — A/B/C/D variant slots zero-filled. The optional date
+	 * range filters events by created_at (inclusive bounds).
+	 *
+	 * @param int[]  $experiment_ids
+	 * @param string $from YYYY-MM-DD, '' for no lower bound
+	 * @param string $to   YYYY-MM-DD, '' for no upper bound
+	 * @return array<int, array<string, array{impressions:int,conversions:int}>>
+	 */
+	public static function raw_counts_for_experiments( array $experiment_ids, string $from = '', string $to = '' ): array {
+		$ids = array_values( array_unique( array_map( 'intval', $experiment_ids ) ) );
+		$ids = array_filter( $ids, static fn( $id ) => $id > 0 );
+		if ( empty( $ids ) ) {
+			return [];
+		}
+
+		global $wpdb;
+		$table        = Schema::events_table();
+		$placeholders = implode( ',', array_fill( 0, count( $ids ), '%d' ) );
+		[ $date_sql, $date_params ] = self::date_range_clause( $from, $to );
+		$params       = array_merge( $ids, $date_params );
+
+		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared,WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching
 		$rows = $wpdb->get_results(
 			$wpdb->prepare(
-				"SELECT variant, event_type, COUNT(*) AS n FROM {$table} WHERE experiment_id = %d GROUP BY variant, event_type", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-				$experiment_id
+				// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+				"SELECT experiment_id, variant, event_type, COUNT(*) AS n
+				   FROM {$table}
+				  WHERE experiment_id IN ({$placeholders}) {$date_sql}
+				  GROUP BY experiment_id, variant, event_type",
+				...$params
 			),
 			ARRAY_A
 		);
 
-		$out = [
-			'A' => [ 'impressions' => 0, 'conversions' => 0 ],
-			'B' => [ 'impressions' => 0, 'conversions' => 0 ],
-			'C' => [ 'impressions' => 0, 'conversions' => 0 ],
-			'D' => [ 'impressions' => 0, 'conversions' => 0 ],
-		];
+		$out = [];
+		foreach ( $ids as $id ) {
+			$out[ $id ] = self::empty_variant_counts();
+		}
 		foreach ( (array) $rows as $row ) {
+			$exp_id  = (int) $row['experiment_id'];
 			$variant = strtoupper( (string) $row['variant'] );
-			if ( ! isset( $out[ $variant ] ) ) {
+			if ( ! isset( $out[ $exp_id ][ $variant ] ) ) {
 				continue;
 			}
 			$type = (string) $row['event_type'];
 			$n    = (int) $row['n'];
 			if ( Tracker::EVENT_IMPRESSION === $type ) {
-				$out[ $variant ]['impressions'] = $n;
+				$out[ $exp_id ][ $variant ]['impressions'] = $n;
 			} elseif ( Tracker::EVENT_CONVERSION === $type ) {
-				$out[ $variant ]['conversions'] = $n;
+				$out[ $exp_id ][ $variant ]['conversions'] = $n;
 			}
 		}
 		return $out;
+	}
+
+	private static function empty_variant_counts(): array {
+		return [
+			'A' => [ 'impressions' => 0, 'conversions' => 0 ],
+			'B' => [ 'impressions' => 0, 'conversions' => 0 ],
+			'C' => [ 'impressions' => 0, 'conversions' => 0 ],
+			'D' => [ 'impressions' => 0, 'conversions' => 0 ],
+		];
 	}
 
 	/**

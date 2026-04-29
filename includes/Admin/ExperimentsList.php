@@ -10,9 +10,7 @@ declare( strict_types=1 );
 namespace Abtest\Admin;
 
 use Abtest\Experiment;
-use Abtest\Schema;
 use Abtest\Stats;
-use Abtest\Tracker;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -60,7 +58,7 @@ final class ExperimentsList {
 
 			<?php
 			$grouped        = self::group_by_url( $experiments );
-			$counts         = self::aggregate_event_counts( wp_list_pluck( $experiments, 'ID' ), $from, $to );
+			$counts         = Stats::raw_counts_for_experiments( wp_list_pluck( $experiments, 'ID' ), $from, $to );
 			$running_by_url = self::running_by_url( $experiments );
 
 			$hidden_count = 0;
@@ -300,61 +298,6 @@ final class ExperimentsList {
 		return $grouped;
 	}
 
-	/**
-	 * Single SQL query: counts per (experiment_id, variant, event_type) for the given experiment IDs.
-	 *
-	 * @param int[] $experiment_ids
-	 * @return array<int, array{A:array{impressions:int,conversions:int}, B:array{impressions:int,conversions:int}}>
-	 */
-	private static function aggregate_event_counts( array $experiment_ids, string $from = '', string $to = '' ): array {
-		$out = [];
-		if ( empty( $experiment_ids ) ) {
-			return $out;
-		}
-
-		global $wpdb;
-		$table   = Schema::events_table();
-		$ids     = array_map( 'intval', $experiment_ids );
-		$placeholders = implode( ',', array_fill( 0, count( $ids ), '%d' ) );
-
-		[ $date_sql, $date_params ] = Stats::date_range_clause( $from, $to );
-		$params = array_merge( $ids, $date_params );
-
-		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared,WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching
-		$rows = $wpdb->get_results(
-			$wpdb->prepare(
-				// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-				"SELECT experiment_id, variant, event_type, COUNT(*) AS n
-				   FROM {$table}
-				  WHERE experiment_id IN ({$placeholders}) {$date_sql}
-				  GROUP BY experiment_id, variant, event_type",
-				...$params
-			),
-			ARRAY_A
-		);
-
-		foreach ( $ids as $id ) {
-			$out[ $id ] = [
-				'A' => [ 'impressions' => 0, 'conversions' => 0 ],
-				'B' => [ 'impressions' => 0, 'conversions' => 0 ],
-			];
-		}
-		foreach ( (array) $rows as $row ) {
-			$exp_id  = (int) $row['experiment_id'];
-			$variant = strtoupper( (string) $row['variant'] );
-			$type    = (string) $row['event_type'];
-			$n       = (int) $row['n'];
-			if ( ! isset( $out[ $exp_id ][ $variant ] ) ) {
-				continue;
-			}
-			if ( Tracker::EVENT_IMPRESSION === $type ) {
-				$out[ $exp_id ][ $variant ]['impressions'] = $n;
-			} elseif ( Tracker::EVENT_CONVERSION === $type ) {
-				$out[ $exp_id ][ $variant ]['conversions'] = $n;
-			}
-		}
-		return $out;
-	}
 
 	private static function totals_for_group( array $exps, array $counts ): array {
 		$imp = 0;

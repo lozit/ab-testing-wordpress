@@ -24,7 +24,9 @@ final class Plugin {
 
 	public static function boot(): void {
 		$plugin = self::instance();
-		$plugin->load_textdomain();
+		// WP 6.7+ flags load_plugin_textdomain() called before `init` as
+		// "_load_textdomain_just_in_time was called incorrectly" — defer to init/0.
+		add_action( 'init', [ $plugin, 'load_textdomain' ], 0 );
 		$plugin->maybe_upgrade_schema();
 		$plugin->register_components();
 	}
@@ -54,7 +56,7 @@ final class Plugin {
 		flush_rewrite_rules();
 	}
 
-	private function load_textdomain(): void {
+	public function load_textdomain(): void {
 		load_plugin_textdomain(
 			'ab-testing-wordpress',
 			false,

@@ -132,10 +132,15 @@ final class StatsController {
 
 		$experiments = get_posts( $query_args );
 
+		// Single SQL fetches counts for every experiment in this response —
+		// turns N+1 (one query per experiment) into 1 query total.
+		$exp_ids   = array_map( static fn( $e ) => (int) $e->ID, $experiments );
+		$batch     = Stats::raw_counts_for_experiments( $exp_ids, $from, $to );
+
 		$out = [];
 		foreach ( $experiments as $exp ) {
 			$exp_id   = (int) $exp->ID;
-			$counts   = self::counts_for_experiment( $exp_id, $from, $to );
+			$counts   = $batch[ $exp_id ] ?? [];
 			$computed = Stats::compute( $counts );
 
 			$variants_meta = Experiment::get_variants( $exp_id );
@@ -206,47 +211,4 @@ final class StatsController {
 		);
 	}
 
-	/**
-	 * Per-experiment counts honoring the optional date range, mirroring what
-	 * the admin list view uses but returning a single-experiment shape.
-	 */
-	private static function counts_for_experiment( int $experiment_id, string $from, string $to ): array {
-		global $wpdb;
-		$table = \Abtest\Schema::events_table();
-
-		[ $date_sql, $date_params ] = Stats::date_range_clause( $from, $to );
-		$params = array_merge( [ $experiment_id ], $date_params );
-
-		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared,WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching
-		$rows = $wpdb->get_results(
-			$wpdb->prepare(
-				// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-				"SELECT variant, event_type, COUNT(*) AS n
-				   FROM {$table}
-				  WHERE experiment_id = %d {$date_sql}
-				  GROUP BY variant, event_type",
-				...$params
-			),
-			ARRAY_A
-		);
-
-		$out = [
-			'A' => [ 'impressions' => 0, 'conversions' => 0 ],
-			'B' => [ 'impressions' => 0, 'conversions' => 0 ],
-		];
-		foreach ( (array) $rows as $row ) {
-			$variant = strtoupper( (string) $row['variant'] );
-			if ( ! isset( $out[ $variant ] ) ) {
-				continue;
-			}
-			$type = (string) $row['event_type'];
-			$n    = (int) $row['n'];
-			if ( \Abtest\Tracker::EVENT_IMPRESSION === $type ) {
-				$out[ $variant ]['impressions'] = $n;
-			} elseif ( \Abtest\Tracker::EVENT_CONVERSION === $type ) {
-				$out[ $variant ]['conversions'] = $n;
-			}
-		}
-		return $out;
-	}
 }

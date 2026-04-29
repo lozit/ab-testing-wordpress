@@ -93,8 +93,8 @@
 - [x] **CI GitHub Actions** — `.github/workflows/ci.yml` avec matrix PHP 8.1/8.2/8.3 (syntax check + PHPUnit gating), PHPCS en continue-on-error, concurrency cancel-in-progress, badges README
 - [x] **Release workflow** + **Dependabot** (composer/npm/actions weekly)
 - [x] **Cache bypass complet** : headers no-store universels + WP Rocket + LiteSpeed + Kinsta detection (notice avec lien Cache Bypass MyKinsta) + doc readme.txt
-- [ ] Refactor `Stats::for_experiment` → batch query (1 SQL pour N experiments)
-- [ ] Bump WP-env vers 6.9 (et dropper le pin `~6.5.0` sur wp-phpunit)
+- [x] **Refactor `Stats::for_experiment` → batch query** (v0.8.1) — nouveau public `Stats::raw_counts_for_experiments(array $ids, $from, $to)` (1 SQL pour N experiments). Utilisé par l'endpoint REST `GET /abtest/v1/stats` (N+1 → 1) ET la liste admin (consolidation, suppression du duplicat privé `aggregate_event_counts`). 5 tests d'intégration nouveaux.
+- [x] **Bump WP-env vers 6.9** + dropper pin `~6.5.0` sur wp-phpunit (v0.8.1) — `.wp-env.json` → `WordPress/WordPress#6.9.4`, `composer.json` → `wp-phpunit/wp-phpunit ^6.9`, `Tested up to: 6.9` dans readme.txt. Fix au passage du notice PHP 6.7+ "load_textdomain_just_in_time" en hookant `load_plugin_textdomain` sur `init/0` au lieu de `plugins_loaded`.
 
 ### RGPD / conformité (v0.8.0)
 - [x] **Option "respecter consentement"** — toggle "Require consent" dans Settings + filtre `abtest_visitor_has_consent` (true/false/null) + chemin silent baseline (zéro cookie, zéro impression) quand pas de consent. Off par défaut, no breaking change. Helper `Consent::is_blocked()` + 5 tests unitaires.

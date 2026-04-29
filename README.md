@@ -350,8 +350,7 @@ Most-likely next iterations (see [`tasks/todo.md`](./tasks/todo.md) for the full
 - WooCommerce variants (test prices, product descriptions)
 - WPML / Polylang multilingual support
 - Auto-purge Kinsta cache via REST API on test transitions
-- Consent-aware tracking (respect detected consent plugins)
-- Refactor `Stats::for_experiment` → batch query (1 SQL for N experiments)
+- Auto-detection of installed consent plugins (Complianz, CookieYes, Cookiebot) — today the integration is via filter snippet
 
 ---
 
