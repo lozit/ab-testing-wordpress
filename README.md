@@ -174,6 +174,33 @@ Filter return convention: `true` → track, `false` → block, `null` → unknow
 
 ---
 
+## Multilingual (WPML / Polylang)
+
+A single experiment with `test_url = /promo/` automatically matches every translation: `/fr/promo/`, `/en/promo/`, `/de/promo/`. The plugin detects WPML or Polylang at runtime, reads the active language list, and strips the leading `/{lang}/` segment before the matcher runs.
+
+- Compound slugs supported: `pt-br`, `en-us`, etc.
+- Mid-path occurrences are not stripped — `/blog/fr/post/` stays as-is.
+- Idempotent — already-stripped paths pass through untouched.
+
+For per-language testing (e.g., FR-only banner), drop the auto-strip and target your URLs explicitly:
+
+```php
+remove_filter( 'abtest_request_path', [ \Abtest\MultiLanguage::class, 'strip_language_prefix' ] );
+// Now create separate experiments with test_url = /fr/promo/ and test_url = /en/promo/.
+```
+
+Custom multilingual stacks can hook the filter directly:
+
+```php
+add_filter( 'abtest_request_path', function ( $path ) {
+    return preg_replace( '#^/(es|it)/#', '/', $path );
+} );
+```
+
+The filter receives the normalized path (lowercased, slashes added, query string canonicalized) and returns whatever the matcher should see.
+
+---
+
 ## REST API
 
 ```
@@ -348,7 +375,6 @@ Most-likely next iterations (see [`tasks/todo.md`](./tasks/todo.md) for the full
 
 - Block-level testing (target a single Gutenberg block instead of a whole page)
 - WooCommerce variants (test prices, product descriptions)
-- WPML / Polylang multilingual support
 - Auto-purge Kinsta cache via REST API on test transitions
 - Auto-detection of installed consent plugins (Complianz, CookieYes, Cookiebot) — today the integration is via filter snippet
 

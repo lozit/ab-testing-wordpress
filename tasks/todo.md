@@ -86,7 +86,7 @@
 - [x] **Multi-variantes A/B/C/D** — split équitable, pairwise vs baseline + Bonferroni, UI dynamique add/remove, migration auto v1.2.0, REST + CSV étendus
 - [ ] Block-level testing (bloc Gutenberg unique au lieu de page entière)
 - [x] **Targeting** (devices mobile/tablet/desktop + ISO countries via Cloudflare/Kinsta CF-IPCountry header ou filter `abtest_visitor_country`) — Router gate, admin/bot bypass exempt, 9 unit tests sur le UA classifier
-- [ ] Multi-langue (WPML / Polylang)
+- [x] **Multi-langue (WPML / Polylang)** (v0.9.0) — `MultiLanguage` helper auto-détecté + filtre public `abtest_request_path`. Strip du préfixe `/{lang}/` avant matching → un seul experiment avec `test_url = /promo/` matche `/fr/promo/`, `/en/promo/`, etc. Slugs composés supportés (`pt-br`). Stripping uniquement en tête (pas mid-path). 9 tests unitaires + verif e2e WPML simulé dans wp-env.
 
 ### Qualité technique
 - [x] **Tests d'intégration wp-phpunit** — bootstrap + wp-tests-config.php, 10 tests (SchemaTest, ExperimentTest, SchedulerTest), runs in wp-env tests-cli

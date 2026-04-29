@@ -225,6 +225,11 @@ final class Router {
 	 * Extract the request URL (path + query) and normalize it.
 	 * Includes the query string so query-param-targeted experiments
 	 * (e.g. test_url=/promo/?campaign=fb) can match.
+	 *
+	 * The final normalized path passes through the `abtest_request_path` filter
+	 * so callers can rewrite it before the matcher runs. The plugin auto-uses
+	 * this hook to strip WPML / Polylang language prefixes (`/fr/promo/` →
+	 * `/promo/`) so a single experiment applies across translations.
 	 */
 	private function extract_path_from_request( \WP $wp ): string {
 		$path = isset( $wp->request ) && '' !== $wp->request
@@ -245,7 +250,18 @@ final class Router {
 			$path .= '?' . $query;
 		}
 
-		return Experiment::normalize_path( $path );
+		$normalized = Experiment::normalize_path( $path );
+
+		/**
+		 * Filter the normalized request path before the experiment matcher runs.
+		 *
+		 * Used by the bundled MultiLanguage helper to strip WPML / Polylang
+		 * language prefixes. Custom multilingual setups can wire their own logic.
+		 *
+		 * @param string $normalized Path with leading/trailing slashes, lowercased,
+		 *                           query string canonicalized.
+		 */
+		return (string) apply_filters( 'abtest_request_path', $normalized );
 	}
 
 	public function filter_canonical_url( $url, $post ) {

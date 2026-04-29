@@ -4,7 +4,7 @@ Tags: ab testing, split testing, conversion, analytics
 Requires at least: 6.0
 Tested up to: 6.9
 Requires PHP: 8.1
-Stable tag: 0.8.2
+Stable tag: 0.9.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -106,6 +106,11 @@ No. Logged-in users with `edit_posts` capability are bypassed and always see the
 v1 only swaps the entire page (the variant must be a separate post). Block-level and product-level testing are on the roadmap.
 
 == Changelog ==
+
+= 0.9.0 =
+* Multilingual support (WPML / Polylang): a single experiment with `test_url = /promo/` now matches `/fr/promo/`, `/en/promo/`, `/de/promo/`, etc. The bundled `MultiLanguage` helper auto-detects WPML/Polylang and strips the language prefix from request paths before matching. Compound slugs (`pt-br`, `en-us`) supported. Mid-path occurrences of a language slug (e.g. `/blog/fr/x/`) are NOT stripped — only true URL prefixes.
+* New filter `abtest_request_path` for custom multilingual setups: receives the normalized request path, returns whatever you want the matcher to see. Documented in README.
+* Filter is opt-out for non-default behavior: `remove_filter('abtest_request_path', [\Abtest\MultiLanguage::class, 'strip_language_prefix'])`.
 
 = 0.8.2 =
 * RGPD data minimization: visitor_hash is now stored as 16 hex chars (64 bits) instead of 64 chars (256 bits). Birthday-collision probability stays under 3e-8 even at 1M visitors per experiment, dedup integrity preserved, and the smaller surface harder to brute-force against IP+UA rainbow tables. DB schema bumped to v1.3.0 — migration auto-truncates existing visitor_hash values via SUBSTRING before the column ALTER (idempotent, runs before dbDelta).

@@ -309,6 +309,7 @@ final class Plugin {
 		Scheduler::register();
 		Watcher::register();
 		PrivacyPolicy::register();
+		MultiLanguage::register();
 		Integrations\Ga4::instance()->register();
 		Integrations\Webhook::instance()->register();
 
