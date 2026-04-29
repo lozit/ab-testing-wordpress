@@ -33,7 +33,7 @@ final class UrlValidatorTest extends TestCase {
 			'whitespace trimmed'      => [ '  /promo/  ', '/promo/' ],
 			'empty stays empty'       => [ '', '' ],
 			'root stays root'         => [ '/', '/' ],
-			'query string stripped'   => [ '/promo/?campaign=fb', '/promo/' ],
+			'query string kept'       => [ '/promo/?campaign=fb', '/promo/?campaign=fb' ],
 			'fragment stripped'       => [ '/promo/#section', '/promo/' ],
 		];
 	}
@@ -73,6 +73,39 @@ final class UrlValidatorTest extends TestCase {
 			'empty'                 => [ '' ],
 			'just text'             => [ 'hello' ],
 			'double slash inside'   => [ '/parent//child/' ],
+			'malformed query (no =)' => [ '/promo/?broken' ],
+			'malformed query (no value)' => [ '/promo/?key=' ],
 		];
+	}
+
+	// ----- Query string normalization & matching -----
+
+	public function test_normalize_keeps_query_with_sorted_params(): void {
+		// Same params in different order → same canonical form.
+		$a = Experiment::normalize_path( '/promo/?b=2&a=1' );
+		$b = Experiment::normalize_path( '/promo/?a=1&b=2' );
+		$this->assertSame( '/promo/?a=1&b=2', $a );
+		$this->assertSame( $a, $b );
+	}
+
+	public function test_normalize_strips_fragment(): void {
+		$this->assertSame( '/promo/?a=1', Experiment::normalize_path( '/promo/?a=1#section' ) );
+	}
+
+	public function test_path_only_extracts_correctly(): void {
+		$this->assertSame( '/promo/', Experiment::path_only( '/promo/?a=1&b=2' ) );
+		$this->assertSame( '/promo/', Experiment::path_only( '/promo/' ) );
+	}
+
+	public function test_query_params_extracts_assoc(): void {
+		$this->assertSame(
+			[ 'a' => '1', 'b' => '2' ],
+			Experiment::query_params( '/promo/?a=1&b=2' )
+		);
+		$this->assertSame( [], Experiment::query_params( '/promo/' ) );
+	}
+
+	public function test_unicode_lowercased_via_mb(): void {
+		$this->assertSame( '/promotion-été/', Experiment::normalize_path( '/PROMOTION-ÉTÉ/' ) );
 	}
 }

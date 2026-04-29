@@ -214,23 +214,30 @@ final class Router {
 	}
 
 	/**
-	 * Extract the path portion from the WP request, normalized to "/foo/" form.
+	 * Extract the request URL (path + query) and normalize it.
+	 * Includes the query string so query-param-targeted experiments
+	 * (e.g. test_url=/promo/?campaign=fb) can match.
 	 */
 	private function extract_path_from_request( \WP $wp ): string {
-		// $wp->request is the matched permastruct (e.g. "promo" without slashes).
-		// Fall back to REQUEST_URI for paths that bypass rewrite (root, ?page_id=…).
-		$candidate = isset( $wp->request ) && '' !== $wp->request
+		$path = isset( $wp->request ) && '' !== $wp->request
 			? '/' . trim( (string) $wp->request, '/' ) . '/'
 			: '';
 
-		if ( '' === $candidate && isset( $_SERVER['REQUEST_URI'] ) ) {
+		if ( '' === $path && isset( $_SERVER['REQUEST_URI'] ) ) {
 			// phpcs:ignore WordPress.Security.ValidatedSanitizedInput
-			$uri       = (string) $_SERVER['REQUEST_URI'];
-			$parsed    = wp_parse_url( $uri, PHP_URL_PATH );
-			$candidate = is_string( $parsed ) ? $parsed : '';
+			$uri    = (string) $_SERVER['REQUEST_URI'];
+			$parsed = wp_parse_url( $uri, PHP_URL_PATH );
+			$path   = is_string( $parsed ) ? $parsed : '';
 		}
 
-		return Experiment::normalize_path( $candidate );
+		// Append the request's query string so subset-matching can run.
+		// phpcs:ignore WordPress.Security.ValidatedSanitizedInput
+		$query = isset( $_SERVER['QUERY_STRING'] ) ? (string) $_SERVER['QUERY_STRING'] : '';
+		if ( '' !== $query ) {
+			$path .= '?' . $query;
+		}
+
+		return Experiment::normalize_path( $path );
 	}
 
 	public function filter_canonical_url( $url, $post ) {

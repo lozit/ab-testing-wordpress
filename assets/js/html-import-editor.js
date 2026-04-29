@@ -27,8 +27,9 @@
 	function showFile(file) {
 		var name = file.name || '';
 		var lower = name.toLowerCase();
-		if (!/\.html?$/.test(lower)) {
-			showError('Only .html and .htm files are accepted (got: ' + name + ').');
+		var isZip = /\.zip$/.test(lower);
+		if (!/\.html?$/.test(lower) && !isZip) {
+			showError('Only .html, .htm and .zip files are accepted (got: ' + name + ').');
 			input.value = '';
 			return;
 		}
@@ -39,10 +40,16 @@
 		}
 
 		meta.style.color = '';
-		meta.textContent = '✓ ' + name + ' — ' + humanSize(file.size);
+		meta.textContent = '✓ ' + name + ' — ' + humanSize(file.size) + (isZip ? '  ·  preview unavailable for .zip (assets extracted on submit)' : '');
 		meta.hidden = false;
 
-		// Render preview into the sandboxed iframe via FileReader → srcdoc.
+		// .zip can't be previewed in the iframe (binary, contains assets that need to be extracted server-side).
+		if (isZip) {
+			if (previewRow) previewRow.hidden = true;
+			return;
+		}
+
+		// Render HTML preview into the sandboxed iframe via FileReader → srcdoc.
 		if (previewFrame && previewRow) {
 			var reader = new FileReader();
 			reader.onload = function (e) {

@@ -35,6 +35,7 @@ final class Admin {
 		add_action( 'admin_post_abtest_resume', [ $this, 'handle_resume' ] );
 		add_action( 'admin_post_abtest_delete_experiment', [ $this, 'handle_delete' ] );
 		add_action( 'admin_post_abtest_import_html', [ HtmlImport::class, 'handle_upload' ] );
+		add_action( 'admin_post_abtest_watch_scan', [ HtmlImport::class, 'handle_scan_now' ] );
 		add_action( 'admin_post_abtest_save_settings', [ Settings::class, 'handle_save' ] );
 		add_action( 'admin_post_abtest_test_webhook', [ Settings::class, 'handle_test_webhook' ] );
 		add_action( 'admin_post_abtest_export_csv', [ CsvExport::class, 'handle' ] );
@@ -532,9 +533,36 @@ final class Admin {
 	}
 
 	public static function is_valid_test_url( string $path ): bool {
-		// Must start with /, end with /, contain only [a-z0-9_-/], with no double slashes inside.
-		if ( ! preg_match( '#^/(?:[a-z0-9_\-]+/)+$#', $path ) ) {
-			return '/' === $path; // root path is allowed but unusual
+		if ( '/' === $path ) {
+			return true; // root, unusual but allowed
+		}
+
+		// Split path and query. Query is optional (?key=value).
+		$query = '';
+		$qmark = strpos( $path, '?' );
+		if ( false !== $qmark ) {
+			$query = (string) substr( $path, $qmark + 1 );
+			$path  = (string) substr( $path, 0, $qmark );
+		}
+
+		// Path: lowercase Unicode letters/digits + _ - / between slashes, no doubles.
+		// \p{Ll} = lowercase letter (Unicode-aware), \p{N} = any number.
+		if ( ! preg_match( '#^/(?:[\p{Ll}\p{N}_\-]+/)+$#u', $path ) ) {
+			return false;
+		}
+
+		if ( '' === $query ) {
+			return true;
+		}
+
+		// Query: simple key=value pairs separated by &. Keys must be ASCII for sanity.
+		foreach ( explode( '&', $query ) as $pair ) {
+			if ( '' === $pair ) {
+				continue;
+			}
+			if ( ! preg_match( '/^[a-z0-9_\-]+=.+$/i', $pair ) ) {
+				return false;
+			}
 		}
 		return true;
 	}

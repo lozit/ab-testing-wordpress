@@ -11,13 +11,17 @@ declare( strict_types=1 );
 namespace Abtest\Admin;
 
 use Abtest\Template;
+use Abtest\Watcher;
 
 defined( 'ABSPATH' ) || exit;
 
 final class HtmlImport {
 
-	public const NONCE        = 'abtest_import_html';
-	public const ALLOWED_EXTS = [ 'html', 'htm' ];
+	public const NONCE       = 'abtest_import_html';
+	public const SCAN_NONCE  = 'abtest_watch_scan';
+	public const ALLOWED_EXTS = [ 'html', 'htm', 'zip' ];
+
+	public const ASSETS_SUBDIR = 'abtest-templates';
 
 	/**
 	 * Maximum upload size in bytes. Default 5 MiB.
@@ -60,9 +64,9 @@ final class HtmlImport {
 						<th scope="row"><label for="abtest-html-file"><?php esc_html_e( 'HTML file', 'ab-testing-wordpress' ); ?></label></th>
 						<td>
 							<div class="abtest-html-dropzone" data-max-bytes="<?php echo (int) self::max_bytes(); ?>">
-								<input type="file" id="abtest-html-file" name="html_file" accept=".html,.htm" required>
+								<input type="file" id="abtest-html-file" name="html_file" accept=".html,.htm,.zip" required>
 								<p class="abtest-html-dropzone-hint">
-									<?php esc_html_e( 'Drop a .html file here, or click to browse.', 'ab-testing-wordpress' ); ?>
+									<?php esc_html_e( 'Drop a .html or .zip file here, or click to browse.', 'ab-testing-wordpress' ); ?>
 								</p>
 								<p class="abtest-html-dropzone-meta" hidden></p>
 							</div>
@@ -70,7 +74,7 @@ final class HtmlImport {
 								<?php
 								printf(
 									/* translators: %s: max size, human-readable */
-									esc_html__( 'Max %s. Only .html and .htm extensions accepted.', 'ab-testing-wordpress' ),
+									esc_html__( 'Max %s. Accepted: .html, .htm, or .zip (extracts to wp-content/uploads/abtest-templates/{slug}/, rewriting relative asset paths so CSS/JS/images load).', 'ab-testing-wordpress' ),
 									esc_html( size_format( self::max_bytes() ) )
 								);
 								?>
@@ -108,8 +112,96 @@ final class HtmlImport {
 
 				<?php submit_button( __( 'Import HTML', 'ab-testing-wordpress' ) ); ?>
 			</form>
+
+			<?php self::render_watcher_panel( $action_url ); ?>
 		</div>
 		<?php
+	}
+
+	/**
+	 * Watch directory panel : explains the workflow and offers a "Scan now" button
+	 * so users don't have to wait for the 5-minute cron.
+	 */
+	private static function render_watcher_panel( string $action_url ): void {
+		$watch_dir = Watcher::watch_dir();
+		$last      = Watcher::last_run();
+		?>
+		<hr style="margin:32px 0;">
+		<h2><?php esc_html_e( 'Watch directory (auto-sync)', 'ab-testing-wordpress' ); ?></h2>
+		<p class="description">
+			<?php
+			printf(
+				/* translators: %s: full path to wp-content/uploads/abtest-templates/ */
+				esc_html__( 'Drop or edit HTML files in %s — every 5 minutes WP-Cron syncs changed files into pages with the Blank Canvas template. New folders create a page; edits to an existing %s update the matching page.', 'ab-testing-wordpress' ),
+				'<code>' . esc_html( $watch_dir ) . '/{slug}/</code>',
+				'<code>index.html</code>'
+			);
+			?>
+		</p>
+		<p class="description">
+			<?php esc_html_e( 'Tip: combine with your IDE / SFTP / cloud sync (Dropbox, iCloud Drive…) so changes propagate without leaving the editor. The watcher only adds and updates — it never deletes pages.', 'ab-testing-wordpress' ); ?>
+		</p>
+		<?php if ( null !== $last ) : ?>
+			<p>
+				<strong><?php esc_html_e( 'Last scan:', 'ab-testing-wordpress' ); ?></strong>
+				<?php
+				$ago = human_time_diff( (int) $last['time'], time() );
+				printf(
+					/* translators: 1: time ago, 2: created count, 3: updated count, 4: skipped count */
+					esc_html__( '%1$s ago — %2$d created, %3$d updated, %4$d unchanged.', 'ab-testing-wordpress' ),
+					esc_html( $ago ),
+					(int) ( $last['stats']['created'] ?? 0 ),
+					(int) ( $last['stats']['updated'] ?? 0 ),
+					(int) ( $last['stats']['skipped'] ?? 0 )
+				);
+				if ( ! empty( $last['stats']['errors'] ) ) {
+					echo ' <span style="color:#b32d2e;">' . esc_html( implode( ' · ', (array) $last['stats']['errors'] ) ) . '</span>';
+				}
+				?>
+			</p>
+		<?php endif; ?>
+		<form method="post" action="<?php echo esc_url( $action_url ); ?>" style="margin-top:8px;">
+			<?php wp_nonce_field( self::SCAN_NONCE, '_abtest_scan_nonce' ); ?>
+			<input type="hidden" name="action" value="abtest_watch_scan">
+			<?php submit_button( __( 'Scan now', 'ab-testing-wordpress' ), 'secondary', 'submit', false ); ?>
+		</form>
+		<?php
+	}
+
+	public static function handle_scan_now(): void {
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_die( esc_html__( 'Forbidden', 'ab-testing-wordpress' ), 403 );
+		}
+		check_admin_referer( self::SCAN_NONCE, '_abtest_scan_nonce' );
+
+		$stats = Watcher::scan();
+
+		$message = sprintf(
+			/* translators: 1: created, 2: updated, 3: skipped */
+			__( 'Scan complete: %1$d created, %2$d updated, %3$d unchanged.', 'ab-testing-wordpress' ),
+			(int) $stats['created'],
+			(int) $stats['updated'],
+			(int) $stats['skipped']
+		);
+		if ( ! empty( $stats['errors'] ) ) {
+			$message .= ' ' . implode( ' · ', (array) $stats['errors'] );
+			$type     = 'warning';
+		} else {
+			$type = 'success';
+		}
+
+		wp_safe_redirect(
+			add_query_arg(
+				[
+					'page'            => Admin::menu_slug(),
+					'action'          => 'import',
+					'abtest_notice'   => rawurlencode( $message ),
+					'abtest_notice_t' => $type,
+				],
+				admin_url( 'admin.php' )
+			)
+		);
+		exit;
 	}
 
 	public static function handle_upload(): void {
@@ -155,13 +247,24 @@ final class HtmlImport {
 			self::redirect_error( __( 'Upload failed.', 'ab-testing-wordpress' ) );
 		}
 
-		$contents = file_get_contents( $tmp_name );
-		if ( false === $contents ) {
-			self::redirect_error( __( 'Could not read uploaded file.', 'ab-testing-wordpress' ) );
-		}
-
 		$target_id = isset( $_POST['target_page_id'] ) ? absint( wp_unslash( $_POST['target_page_id'] ) ) : 0;
 		$new_title = isset( $_POST['new_title'] ) ? sanitize_text_field( wp_unslash( $_POST['new_title'] ) ) : '';
+
+		// .zip → extract assets to uploads/, rewrite paths in HTML, then proceed as HTML import.
+		$assets_slug = '';
+		if ( 'zip' === $ext ) {
+			$assets_slug = self::compute_assets_slug( $target_id, $new_title );
+			$result      = self::extract_zip_to_uploads( $tmp_name, $assets_slug );
+			if ( is_wp_error( $result ) ) {
+				self::redirect_error( $result->get_error_message() );
+			}
+			$contents = $result; // string: the rewritten HTML
+		} else {
+			$contents = file_get_contents( $tmp_name );
+			if ( false === $contents ) {
+				self::redirect_error( __( 'Could not read uploaded file.', 'ab-testing-wordpress' ) );
+			}
+		}
 
 		if ( $target_id > 0 ) {
 			$page_id = self::replace_existing( $target_id, $contents );
@@ -176,6 +279,16 @@ final class HtmlImport {
 
 		// Always assign the Blank Canvas template (idempotent).
 		update_post_meta( (int) $page_id, '_wp_page_template', Template::TEMPLATE_SLUG );
+
+		// Tag zip-imported pages with their on-disk slug so the Watcher recognizes
+		// them as managed and updates this same post instead of creating a duplicate.
+		if ( '' !== $assets_slug ) {
+			$index_path = trailingslashit( wp_upload_dir()['basedir'] ) . self::ASSETS_SUBDIR . '/' . $assets_slug . '/index.html';
+			if ( file_exists( $index_path ) ) {
+				update_post_meta( (int) $page_id, '_abtest_watcher_slug', $assets_slug );
+				update_post_meta( (int) $page_id, '_abtest_watcher_hash', hash_file( 'sha256', $index_path ) );
+			}
+		}
 
 		self::redirect_success(
 			sprintf(
@@ -228,6 +341,220 @@ final class HtmlImport {
 			return $result;
 		}
 		return $page_id;
+	}
+
+	/**
+	 * Extract a .zip archive into uploads/abtest-templates/{slug}/, rewrite relative
+	 * asset URLs in the HTML (and CSS) to absolute URLs pointing at that folder, and
+	 * return the rewritten HTML.
+	 *
+	 * Security :
+	 *   - Skip dotfiles, __MACOSX/, anything starting with ../ or absolute paths.
+	 *   - Allow only specific extensions (html/htm/css/js/png/jpg/jpeg/gif/svg/webp/woff/woff2/ttf/ico/json/txt).
+	 *
+	 * @return string|\WP_Error Rewritten HTML on success, WP_Error on failure.
+	 */
+	private static function extract_zip_to_uploads( string $tmp_zip, string $slug ) {
+		if ( ! class_exists( 'ZipArchive' ) ) {
+			return new \WP_Error( 'no_zip', __( 'PHP ZipArchive extension is required to import .zip files.', 'ab-testing-wordpress' ) );
+		}
+
+		$zip = new \ZipArchive();
+		if ( true !== $zip->open( $tmp_zip ) ) {
+			return new \WP_Error( 'bad_zip', __( 'Could not open the .zip archive.', 'ab-testing-wordpress' ) );
+		}
+
+		$uploads = wp_upload_dir();
+		if ( ! empty( $uploads['error'] ) ) {
+			$zip->close();
+			return new \WP_Error( 'no_uploads', __( 'Could not access the uploads directory.', 'ab-testing-wordpress' ) );
+		}
+		$dest_dir = trailingslashit( $uploads['basedir'] ) . self::ASSETS_SUBDIR . '/' . $slug;
+		$dest_url = trailingslashit( $uploads['baseurl'] ) . self::ASSETS_SUBDIR . '/' . $slug;
+
+		if ( ! wp_mkdir_p( $dest_dir ) ) {
+			$zip->close();
+			return new \WP_Error( 'mkdir_failed', __( 'Could not create the assets directory.', 'ab-testing-wordpress' ) );
+		}
+
+		$allowed_exts = [ 'html', 'htm', 'css', 'js', 'png', 'jpg', 'jpeg', 'gif', 'svg', 'webp', 'avif', 'woff', 'woff2', 'ttf', 'otf', 'ico', 'json', 'txt', 'map' ];
+		$index_html_path = '';
+		$index_html_relpath = '';
+
+		for ( $i = 0; $i < $zip->numFiles; $i++ ) {
+			$entry = $zip->getNameIndex( $i );
+			if ( false === $entry || '' === $entry ) {
+				continue;
+			}
+			// Reject path traversal, absolute paths, dotfiles, mac metadata.
+			if (
+				str_starts_with( $entry, '/' ) ||
+				str_contains( $entry, '..' ) ||
+				str_starts_with( $entry, '__MACOSX/' ) ||
+				preg_match( '#(^|/)\.[^/]+#', $entry )
+			) {
+				continue;
+			}
+			// Skip directories (zip entries ending with /).
+			if ( str_ends_with( $entry, '/' ) ) {
+				continue;
+			}
+			$ext = strtolower( pathinfo( $entry, PATHINFO_EXTENSION ) );
+			if ( ! in_array( $ext, $allowed_exts, true ) ) {
+				continue;
+			}
+
+			$out_path = $dest_dir . '/' . $entry;
+			wp_mkdir_p( dirname( $out_path ) );
+			$stream = $zip->getStream( $entry );
+			if ( false === $stream ) {
+				continue;
+			}
+			$out_handle = fopen( $out_path, 'wb' );
+			if ( false === $out_handle ) {
+				fclose( $stream );
+				continue;
+			}
+			while ( ! feof( $stream ) ) {
+				fwrite( $out_handle, fread( $stream, 8192 ) );
+			}
+			fclose( $stream );
+			fclose( $out_handle );
+
+			// Track the index.html : prefer one named exactly "index.html" at root,
+			// else the first .html/.htm encountered.
+			if ( in_array( $ext, [ 'html', 'htm' ], true ) ) {
+				if ( 'index.html' === $entry || 'index.htm' === $entry ) {
+					$index_html_path    = $out_path;
+					$index_html_relpath = $entry;
+				} elseif ( '' === $index_html_path ) {
+					$index_html_path    = $out_path;
+					$index_html_relpath = $entry;
+				}
+			}
+		}
+		$zip->close();
+
+		if ( '' === $index_html_path ) {
+			return new \WP_Error( 'no_html', __( 'No .html file found inside the archive.', 'ab-testing-wordpress' ) );
+		}
+
+		// Read the index HTML, rewrite relative asset paths to absolute URLs.
+		$html = file_get_contents( $index_html_path );
+		if ( false === $html ) {
+			return new \WP_Error( 'read_html', __( 'Could not read the index HTML file from the archive.', 'ab-testing-wordpress' ) );
+		}
+
+		// Determine the base URL of the index relative to the assets folder root,
+		// so paths like "css/style.css" inside a nested index work. dirname() returns
+		// "." when the index sits at the zip root — collapse that to nothing.
+		$index_dir          = dirname( $index_html_relpath );
+		$base_url_for_index = trailingslashit( $dest_url ) . ( '.' === $index_dir ? '' : $index_dir . '/' );
+
+		$html = self::rewrite_relative_urls( $html, $base_url_for_index );
+
+		// Also rewrite linked CSS files (image URLs inside `url(...)`). glob() with
+		// `**` is shell-only — walk recursively instead so nested CSS gets rewritten.
+		foreach ( self::find_files( $dest_dir, 'css' ) as $css_path ) {
+			$css = file_get_contents( $css_path );
+			if ( false === $css ) {
+				continue;
+			}
+			$rel_dir     = dirname( substr( $css_path, strlen( $dest_dir ) + 1 ) );
+			$css_dir_url = trailingslashit( $dest_url ) . ( '.' === $rel_dir ? '' : $rel_dir . '/' );
+			file_put_contents( $css_path, self::rewrite_css_urls( $css, $css_dir_url ) );
+		}
+
+		return (string) $html;
+	}
+
+	/**
+	 * Rewrite href/src/srcset attributes in HTML to absolute URLs when relative.
+	 * Skips http(s)://, //, /, #, data:, mailto:, tel:.
+	 *
+	 * Public so the directory watcher can reuse it on hand-edited HTML.
+	 */
+	public static function rewrite_relative_urls( string $html, string $base_url ): string {
+		// href|src on tags that load resources.
+		$html = preg_replace_callback(
+			'/(\b(?:href|src|poster|action)\s*=\s*)(["\'])(?!https?:|\/\/|\/|#|data:|mailto:|tel:|javascript:)([^"\']+)\2/i',
+			static function ( $m ) use ( $base_url ) {
+				return $m[1] . $m[2] . $base_url . ltrim( $m[3], './' ) . $m[2];
+			},
+			$html
+		);
+		// srcset = "img1.png 1x, img2.png 2x" — rewrite each candidate.
+		$html = preg_replace_callback(
+			'/(\bsrcset\s*=\s*)(["\'])([^"\']+)\2/i',
+			static function ( $m ) use ( $base_url ) {
+				$candidates = array_map( 'trim', explode( ',', $m[3] ) );
+				$rewritten  = array_map(
+					static function ( $c ) use ( $base_url ) {
+						$parts = preg_split( '/\s+/', $c, 2 );
+						$url   = $parts[0];
+						if ( '' === $url || preg_match( '#^(?:https?:|//|/|data:)#', $url ) ) {
+							return $c;
+						}
+						return $base_url . ltrim( $url, './' ) . ( isset( $parts[1] ) ? ' ' . $parts[1] : '' );
+					},
+					$candidates
+				);
+				return $m[1] . $m[2] . implode( ', ', $rewritten ) . $m[2];
+			},
+			$html
+		);
+		// Inline <style> blocks : rewrite url(...) inside them.
+		$html = preg_replace_callback(
+			'/<style[^>]*>(.*?)<\/style>/is',
+			static function ( $m ) use ( $base_url ) {
+				return str_replace( $m[1], self::rewrite_css_urls( $m[1], $base_url ), $m[0] );
+			},
+			$html
+		);
+		return $html;
+	}
+
+	/**
+	 * Recursively find files with the given extension under $dir.
+	 *
+	 * @return string[] Absolute file paths.
+	 */
+	private static function find_files( string $dir, string $ext ): array {
+		if ( ! is_dir( $dir ) ) {
+			return [];
+		}
+		$out      = [];
+		$iterator = new \RecursiveIteratorIterator( new \RecursiveDirectoryIterator( $dir, \FilesystemIterator::SKIP_DOTS ) );
+		$ext      = strtolower( $ext );
+		foreach ( $iterator as $file ) {
+			if ( $file->isFile() && strtolower( $file->getExtension() ) === $ext ) {
+				$out[] = $file->getPathname();
+			}
+		}
+		return $out;
+	}
+
+	private static function rewrite_css_urls( string $css, string $base_url ): string {
+		return (string) preg_replace_callback(
+			'/url\(\s*(["\']?)(?!https?:|\/\/|\/|data:|#)([^)"\']+)\1\s*\)/i',
+			static function ( $m ) use ( $base_url ) {
+				return 'url(' . $m[1] . $base_url . ltrim( $m[2], './' ) . $m[1] . ')';
+			},
+			$css
+		);
+	}
+
+	private static function compute_assets_slug( int $target_id, string $new_title ): string {
+		// When updating an existing page, reuse its slug so re-imports replace
+		// the assets folder. New pages get a unique slug based on title + timestamp.
+		if ( $target_id > 0 ) {
+			$slug = (string) get_post_field( 'post_name', $target_id );
+			if ( '' !== $slug ) {
+				return sanitize_title( $slug );
+			}
+		}
+		$base = '' !== $new_title ? sanitize_title( $new_title ) : 'imported';
+		return $base . '-' . gmdate( 'YmdHis' );
 	}
 
 	private static function upload_error_message( int $code ): string {

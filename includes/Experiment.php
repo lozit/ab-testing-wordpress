@@ -79,43 +79,75 @@ final class Experiment {
 	}
 
 	/**
-	 * Find the running experiment matching the given URL path (e.g. "/promo/").
+	 * Find the running experiment matching the given request URL.
 	 *
-	 * Comparison is case-insensitive and tolerates trailing-slash differences.
+	 * Two-step matching:
+	 *   1. Path-only candidate lookup (SQL `LIKE 'path%'` over META_TEST_URL).
+	 *   2. PHP filter: a candidate matches if every key/value pair in its
+	 *      stored query string is also present in the visitor's request.
+	 *      Extra visitor params (utm_*, fbclid, gclid, …) don't break the match.
+	 *
+	 * Path-only match (no `?` in either) preserves the legacy behaviour.
 	 */
-	public static function find_running_for_url( string $path ): ?\WP_Post {
-		$normalized = self::normalize_path( $path );
+	public static function find_running_for_url( string $request_url ): ?\WP_Post {
+		$normalized = self::normalize_path( $request_url );
 		if ( '' === $normalized ) {
 			return null;
 		}
+		$req_path   = self::path_only( $normalized );
+		$req_params = self::query_params( $normalized );
 
-		$query = new \WP_Query(
-			[
-				'post_type'      => self::POST_TYPE,
-				'post_status'    => 'publish',
-				'posts_per_page' => 1,
-				'no_found_rows'  => true,
-				'meta_query'     => [
-					'relation' => 'AND',
-					[
-						'key'     => self::META_STATUS,
-						'value'   => self::STATUS_RUNNING,
-						'compare' => '=',
-					],
-					[
-						'key'     => self::META_TEST_URL,
-						'value'   => $normalized,
-						'compare' => '=',
-					],
-				],
-			]
+		global $wpdb;
+		$candidates = $wpdb->get_col(
+			$wpdb->prepare(
+				// Pull every running experiment whose stored test_url starts with the
+				// request path (so /promo/ matches both stored "/promo/" and "/promo/?campaign=fb").
+				"SELECT m.post_id
+				   FROM {$wpdb->postmeta} m
+				   JOIN {$wpdb->postmeta} s ON s.post_id = m.post_id AND s.meta_key = %s AND s.meta_value = %s
+				  WHERE m.meta_key = %s
+				    AND ( m.meta_value = %s OR m.meta_value LIKE %s )",
+				self::META_STATUS,
+				self::STATUS_RUNNING,
+				self::META_TEST_URL,
+				$req_path,
+				$wpdb->esc_like( $req_path ) . '?%'
+			)
 		);
 
-		return $query->have_posts() ? $query->posts[0] : null;
+		foreach ( (array) $candidates as $post_id ) {
+			$post = get_post( (int) $post_id );
+			if ( ! $post instanceof \WP_Post || 'publish' !== $post->post_status || self::POST_TYPE !== $post->post_type ) {
+				continue;
+			}
+			$stored = self::normalize_path( (string) get_post_meta( (int) $post_id, self::META_TEST_URL, true ) );
+			if ( self::path_only( $stored ) !== $req_path ) {
+				continue;
+			}
+			// Subset check: every required param of the stored URL must be present in the request.
+			$required = self::query_params( $stored );
+			$ok = true;
+			foreach ( $required as $k => $v ) {
+				if ( ! array_key_exists( $k, $req_params ) || (string) $req_params[ $k ] !== (string) $v ) {
+					$ok = false;
+					break;
+				}
+			}
+			if ( $ok ) {
+				return $post;
+			}
+		}
+		return null;
 	}
 
 	/**
-	 * Normalize a URL path into the canonical stored form: leading slash, trailing slash, lowercase.
+	 * Normalize a URL path + optional query into the canonical stored form.
+	 *
+	 * - Path: leading slash, trailing slash, lowercase (Unicode-aware).
+	 * - Query string (if present): kept, with params sorted alphabetically by key
+	 *   so two visitor URLs with the same params in different order produce the
+	 *   same canonical form.
+	 *
 	 * Returns empty string for invalid input.
 	 */
 	public static function normalize_path( string $path ): string {
@@ -123,20 +155,69 @@ final class Experiment {
 		if ( '' === $path ) {
 			return '';
 		}
-		// Strip query string and fragment if any.
-		$path = strtok( $path, '?#' );
-		if ( false === $path ) {
-			return '';
+
+		// Drop the URL fragment (#section) — never sent to the server anyway.
+		$hash_pos = strpos( $path, '#' );
+		if ( false !== $hash_pos ) {
+			$path = substr( $path, 0, $hash_pos );
 		}
-		// Ensure leading slash.
-		if ( '/' !== $path[0] ) {
+
+		// Split path and query.
+		$query = '';
+		$qmark = strpos( $path, '?' );
+		if ( false !== $qmark ) {
+			$query = (string) substr( $path, $qmark + 1 );
+			$path  = (string) substr( $path, 0, $qmark );
+		}
+
+		// Decode percent-encoding so unicode paths like "/promotion-%C3%A9t%C3%A9/" match
+		// the stored "/promotion-été/" form.
+		$path = rawurldecode( $path );
+
+		// Ensure leading slash on path.
+		if ( '' === $path || '/' !== $path[0] ) {
 			$path = '/' . $path;
 		}
 		// Ensure trailing slash (root path "/" stays "/").
 		if ( '/' !== substr( $path, -1 ) ) {
 			$path .= '/';
 		}
-		return strtolower( $path );
+		// Lowercase using mb_strtolower so "É" → "é" works and other non-ASCII letters fold properly.
+		$path = function_exists( 'mb_strtolower' ) ? mb_strtolower( $path, 'UTF-8' ) : strtolower( $path );
+
+		// Sort query params alphabetically by key for canonical form.
+		if ( '' !== $query ) {
+			parse_str( $query, $params );
+			if ( ! empty( $params ) ) {
+				ksort( $params );
+				$path .= '?' . http_build_query( $params );
+			}
+		}
+
+		return $path;
+	}
+
+	/**
+	 * Pull the path-only part of a normalized URL (drops the ?query if present).
+	 * Used for the SQL lookup key — query subset is checked in PHP afterwards.
+	 */
+	public static function path_only( string $normalized_url ): string {
+		$qmark = strpos( $normalized_url, '?' );
+		return false === $qmark ? $normalized_url : substr( $normalized_url, 0, $qmark );
+	}
+
+	/**
+	 * Parse the ?query of a normalized URL into an assoc array of key=>value.
+	 *
+	 * @return array<string,string>
+	 */
+	public static function query_params( string $normalized_url ): array {
+		$qmark = strpos( $normalized_url, '?' );
+		if ( false === $qmark ) {
+			return [];
+		}
+		parse_str( substr( $normalized_url, $qmark + 1 ), $out );
+		return is_array( $out ) ? $out : [];
 	}
 
 	public static function get_test_url( int $experiment_id ): string {

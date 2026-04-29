@@ -4,7 +4,7 @@ Tags: ab testing, split testing, conversion, analytics
 Requires at least: 6.0
 Tested up to: 6.5
 Requires PHP: 8.1
-Stable tag: 0.6.1
+Stable tag: 0.7.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -96,6 +96,13 @@ No. Logged-in users with `edit_posts` capability are bypassed and always see the
 v1 only swaps the entire page (the variant must be a separate post). Block-level and product-level testing are on the roadmap.
 
 == Changelog ==
+
+= 0.7.0 =
+* HTML import accepts `.zip` archives — extracts CSS/JS/images to `wp-content/uploads/abtest-templates/{slug}/`, rewrites relative asset URLs in the HTML so the page renders with full styling (security: extension allowlist + path-traversal guard).
+* Watch directory: drop or edit `index.html` files in `wp-content/uploads/abtest-templates/{slug}/` from your IDE, SFTP, or cloud sync — WP-Cron syncs changed files into pages every 5 minutes (or click "Scan now" in the Import HTML page). Hash-based change detection skips unchanged files.
+* URL targeting now matches query strings (subset semantics): `test_url = /promo/?campaign=fb` matches visitor URL `/promo/?campaign=fb&utm_source=email`. Param order is canonicalized.
+* URL targeting accepts Unicode paths: `test_url = /promotion-été/` matches both the raw and percent-encoded request paths.
+* Validation regex updated to accept Unicode lowercase letters/digits (was ASCII-only). HTML form `pattern=` constraint removed accordingly.
 
 = 0.6.1 =
 * Targeting refinement: out-of-target visitors now silently see the baseline (Variant A) instead of getting a 404 on custom URLs. They are NOT tracked — no cookie set, no impression logged, no conversion script enqueued. Out-of-target visitors on URLs that override an existing public page still fall through to that original page (unchanged).

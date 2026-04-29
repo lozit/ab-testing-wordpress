@@ -43,11 +43,13 @@ final class Plugin {
 
 		Experiment::register();
 		Scheduler::activate();
+		Watcher::activate();
 		flush_rewrite_rules();
 	}
 
 	public static function deactivate(): void {
 		Scheduler::deactivate();
+		Watcher::deactivate();
 		flush_rewrite_rules();
 	}
 
@@ -278,6 +280,7 @@ final class Plugin {
 		Rest\ConvertController::instance()->register();
 		Rest\StatsController::instance()->register();
 		Scheduler::register();
+		Watcher::register();
 		Integrations\Ga4::instance()->register();
 		Integrations\Webhook::instance()->register();
 

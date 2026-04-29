@@ -162,9 +162,9 @@ final class ExperimentEdit {
 					<tr>
 						<th scope="row"><label for="abtest-test-url"><?php esc_html_e( 'Test URL', 'ab-testing-wordpress' ); ?></label></th>
 						<td>
-							<input type="text" id="abtest-test-url" name="test_url" class="regular-text code" placeholder="/promo/" value="<?php echo esc_attr( $test_path ); ?>" pattern="^/[a-z0-9\-_/]+/$" required>
+							<input type="text" id="abtest-test-url" name="test_url" class="regular-text code" placeholder="/promo/" value="<?php echo esc_attr( $test_path ); ?>" required>
 							<p class="description">
-								<?php esc_html_e( 'Public URL where visitors will see the A/B test. Format: lowercase path between slashes (e.g. /promo/, /landing-2026/, /pricing/new/).', 'ab-testing-wordpress' ); ?>
+								<?php esc_html_e( 'Public URL where visitors will see the A/B test. Examples: /promo/, /landing-2026/, /pricing/new/, /promotion-été/, /中文/. Optional query params target campaigns: /promo/?campaign=fb (visitor URL must include campaign=fb; extra params like utm_source or fbclid are tolerated).', 'ab-testing-wordpress' ); ?>
 							</p>
 						</td>
 					</tr>
