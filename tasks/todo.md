@@ -100,8 +100,8 @@
 - [ ] Option "respecter consentement" si plugin de consentement détecté
 - [ ] Doc cookie pour politique de confidentialité
 
-### HTML import — limites mineures
-- [ ] Format zip avec assets (CSS, JS, images)
-- [ ] Watch directory disque (sync IDE → reload)
-- [ ] URL match avec query string (`?campaign=fb`)
-- [ ] URLs unicode dans test_url
+### HTML import — limites mineures (v0.7.0)
+- [x] **Format zip avec assets** (CSS, JS, images) — extraction sécurisée vers `wp-content/uploads/abtest-templates/{slug}/` (extension allowlist + path-traversal guard), réécriture des URL relatives href/src/srcset/url() en absolues dans le HTML stocké
+- [x] **Watch directory disque** (sync IDE → reload) — `Watcher.php` + WP-Cron 5 min + bouton "Scan now" dans Import HTML, détection de changement par hash SHA-256 sur `index.html`, additif uniquement (jamais de delete), pages zip taggées avec `_abtest_watcher_slug` pour éviter les doublons
+- [x] **URL match avec query string** (`?campaign=fb`) — sémantique subset (les params du `test_url` doivent tous être présents dans la requête, mais celle-ci peut en avoir d'autres comme `utm_*`), normalisation par `ksort` pour canonisation
+- [x] **URLs unicode dans `test_url`** — `rawurldecode` + `mb_strtolower`, regex `\p{Ll}\p{N}`, attribut HTML `pattern=` retiré du form
