@@ -35,9 +35,10 @@ final class Plugin {
 		add_option(
 			'abtest_settings',
 			[
-				'cookie_days'   => 30,
-				'bypass_admins' => true,
-				'bypass_bots'   => true,
+				'cookie_days'     => 30,
+				'bypass_admins'   => true,
+				'bypass_bots'     => true,
+				'require_consent' => false,
 			]
 		);
 
@@ -281,6 +282,7 @@ final class Plugin {
 		Rest\StatsController::instance()->register();
 		Scheduler::register();
 		Watcher::register();
+		PrivacyPolicy::register();
 		Integrations\Ga4::instance()->register();
 		Integrations\Webhook::instance()->register();
 

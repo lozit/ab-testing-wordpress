@@ -20,9 +20,11 @@ final class Settings {
 
 	public static function render(): void {
 		Admin::maybe_render_notice();
-		$ga4_cfg    = Ga4::get_settings();
-		$webhooks   = Webhook::get_all();
-		$action_url = admin_url( 'admin-post.php' );
+		$ga4_cfg     = Ga4::get_settings();
+		$webhooks    = Webhook::get_all();
+		$action_url  = admin_url( 'admin-post.php' );
+		$plugin_cfg  = (array) get_option( 'abtest_settings', [] );
+		$req_consent = ! empty( $plugin_cfg['require_consent'] );
 		?>
 		<div class="wrap abtest-wrap">
 			<h1><?php esc_html_e( 'Settings', 'ab-testing-wordpress' ); ?></h1>
@@ -31,7 +33,33 @@ final class Settings {
 				<?php wp_nonce_field( self::NONCE, '_abtest_settings_nonce' ); ?>
 				<input type="hidden" name="action" value="abtest_save_settings">
 
-				<h2><?php esc_html_e( 'Google Analytics 4', 'ab-testing-wordpress' ); ?></h2>
+				<h2><?php esc_html_e( 'Privacy & consent (GDPR)', 'ab-testing-wordpress' ); ?></h2>
+				<p class="description">
+					<?php
+					printf(
+						/* translators: %s: filter name code */
+						esc_html__( 'When enabled, the plugin only sets its variant cookie and logs an event after a consent signal is detected via the %s filter. Without consent, visitors silently see the baseline (Variant A) — no cookie, no impression, no conversion script. See the Privacy & GDPR section of the plugin README for copy-paste snippets to wire your consent banner (Complianz, CookieYes, Cookiebot, custom).', 'ab-testing-wordpress' ),
+						'<code>abtest_visitor_has_consent</code>'
+					);
+					?>
+				</p>
+
+				<table class="form-table" role="presentation">
+					<tr>
+						<th scope="row"><?php esc_html_e( 'Require consent', 'ab-testing-wordpress' ); ?></th>
+						<td>
+							<label>
+								<input type="checkbox" name="require_consent" value="1" <?php checked( $req_consent ); ?>>
+								<?php esc_html_e( 'Block tracking until the abtest_visitor_has_consent filter returns true', 'ab-testing-wordpress' ); ?>
+							</label>
+							<p class="description">
+								<?php esc_html_e( 'Off by default — the plugin behaves as today (tracks every visitor). Turn on if your site uses a consent banner and you want to align A/B testing with the visitor\'s choice. Admin/bot bypass remains exempt so previews keep working without a banner consent.', 'ab-testing-wordpress' ); ?>
+							</p>
+						</td>
+					</tr>
+				</table>
+
+				<h2 class="abtest-section-title"><?php esc_html_e( 'Google Analytics 4', 'ab-testing-wordpress' ); ?></h2>
 				<p class="description">
 					<?php esc_html_e( 'Forward every impression and conversion to GA4 via the Measurement Protocol. Fire-and-forget — never blocks page rendering.', 'ab-testing-wordpress' ); ?>
 				</p>
@@ -215,6 +243,13 @@ final class Settings {
 			wp_die( esc_html__( 'Forbidden', 'ab-testing-wordpress' ), 403 );
 		}
 		check_admin_referer( self::NONCE, '_abtest_settings_nonce' );
+
+		// --- Privacy / consent ---
+		// Merge into the existing abtest_settings array so we don't clobber
+		// other keys (cookie_days, bypass_admins, bypass_bots).
+		$plugin_cfg                    = (array) get_option( 'abtest_settings', [] );
+		$plugin_cfg['require_consent'] = ! empty( $_POST['require_consent'] );
+		update_option( 'abtest_settings', $plugin_cfg );
 
 		// --- GA4 ---
 		$enabled        = ! empty( $_POST['ga4_enabled'] );

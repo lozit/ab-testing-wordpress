@@ -3,7 +3,7 @@
  * Plugin Name:       AB Testing WordPress
  * Plugin URI:        https://github.com/lozit/ab-testing-wordpress
  * Description:       Lightweight A/B testing for WordPress pages with internal tracking and a 50/50 cookie-based split.
- * Version:           0.7.0
+ * Version:           0.8.0
  * Requires at least: 6.0
  * Requires PHP:      8.1
  * Author:            Guillaume Ferrari
@@ -17,7 +17,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'ABTEST_VERSION', '0.7.0' );
+define( 'ABTEST_VERSION', '0.8.0' );
 define( 'ABTEST_DB_VERSION', '1.2.0' );
 define( 'ABTEST_PLUGIN_FILE', __FILE__ );
 define( 'ABTEST_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );

@@ -71,6 +71,14 @@ final class Router {
 		// This way Adwords/Lemlist clicks from outside the target audience still see a
 		// real page (no 404), but they don't pollute the experiment's stats.
 		$out_of_target = ! $bypass && ! Targeting::matches( $experiment->ID );
+
+		// Consent gate (RGPD) : if the admin enabled "Require consent" and no consent
+		// signal is detected via the `abtest_visitor_has_consent` filter, treat the
+		// visitor exactly like out-of-target — silent baseline, no cookie, no event.
+		// Bypass (admins/bots) is exempt so previews still work without a consent banner.
+		$consent_blocked = ! $bypass && Consent::is_blocked();
+		$out_of_target   = $out_of_target || $consent_blocked;
+
 		if ( $out_of_target && $has_underlying ) {
 			return;
 		}

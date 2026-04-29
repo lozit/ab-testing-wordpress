@@ -4,7 +4,7 @@ Tags: ab testing, split testing, conversion, analytics
 Requires at least: 6.0
 Tested up to: 6.5
 Requires PHP: 8.1
-Stable tag: 0.7.0
+Stable tag: 0.8.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -84,6 +84,16 @@ Example:
 
 The response includes for each experiment: id, title, test_url, status, dates, control/variant IDs, goal, and a stats block with A/B impressions/conversions/rate, lift, p-value, significance, and 95% confidence interval bounds for both lift and absolute difference.
 
+== Privacy ==
+
+The plugin stores no raw IP, no User-Agent, no email, no name, and no cross-site tracking identifier. The events table contains: experiment_id, variant, test_url, event_type, created_at, and a `visitor_hash` = `sha256(IP + UA + wp_salt('auth'))` — non-reversible, single-site, salt-rotated. Cookies are httponly, samesite=Lax, secure on HTTPS, value = a single letter (a/b/c/d), 30-day TTL.
+
+A native WordPress privacy guide snippet is registered automatically — find it under Settings → Privacy → Policy Guide → AB Testing WordPress to paste into your privacy policy.
+
+For consent-banner sites: enable "Require consent" in the plugin settings and wire your banner to the `abtest_visitor_has_consent` filter (return true to track, false/null to block). Snippets for Complianz, CookieYes, and Cookiebot are in the README on GitHub.
+
+Right to erasure: because no reversible identifier is stored, individual deletion isn't possible. Use `TRUNCATE wp_abtest_events` to erase all A/B testing data.
+
 == Frequently Asked Questions ==
 
 = How is a visitor assigned to a variant? =
@@ -96,6 +106,12 @@ No. Logged-in users with `edit_posts` capability are bypassed and always see the
 v1 only swaps the entire page (the variant must be a separate post). Block-level and product-level testing are on the roadmap.
 
 == Changelog ==
+
+= 0.8.0 =
+* Privacy & consent gating (GDPR): new "Require consent" toggle in Settings — when on, the plugin sets no cookie and logs no event until the `abtest_visitor_has_consent` filter returns true. Without consent, visitors silently see Variant A (same path as out-of-target). Off by default, no breaking change.
+* Native WordPress privacy guide content registered via `wp_add_privacy_policy_content()` — find it under Settings → Privacy → Policy Guide → AB Testing WordPress, ready to paste into your privacy policy.
+* README now has a Privacy & GDPR section with copy-paste filter snippets for Complianz, CookieYes, and Cookiebot.
+* New `Consent` helper class + 5 unit tests covering the 4 gate states (off, on+true, on+false, on+null/missing filter).
 
 = 0.7.0 =
 * HTML import accepts `.zip` archives — extracts CSS/JS/images to `wp-content/uploads/abtest-templates/{slug}/`, rewrites relative asset URLs in the HTML so the page renders with full styling (security: extension allowlist + path-traversal guard).

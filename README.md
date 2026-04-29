@@ -115,6 +115,65 @@ W3 Total Cache, WP Super Cache, WP Fastest Cache, Cache Enabler — no clean URL
 
 ---
 
+## Privacy & GDPR
+
+The plugin is designed to be conservative by default — no raw IP, no User-Agent, no email, no cross-site tracking. Here is exactly what it stores.
+
+### What's collected
+
+| Surface | Detail |
+|---|---|
+| Cookie name | `abtest_{experiment_id}` (one per running experiment) |
+| Cookie value | A single lowercase letter (`a`/`b`/`c`/`d`) — the assigned variant |
+| Cookie lifetime | 30 days (configurable via `abtest_settings['cookie_days']`) |
+| Cookie flags | `HttpOnly`, `SameSite=Lax`, `Secure` over HTTPS |
+| DB table | `wp_abtest_events` |
+| DB columns | `experiment_id`, `variant`, `test_url`, `event_type`, `created_at`, `visitor_hash` |
+| `visitor_hash` | `sha256(IP + '|' + UA + '|' + wp_salt('auth'))` — non-reversible, single-site, salt-rotated; **no raw IP or UA stored** |
+| Third parties | None by default. GA4 / Webhooks integrations are off until configured. |
+
+A native privacy-policy snippet is registered with WordPress on activation — find it under **Settings → Privacy → Policy Guide → AB Testing WordPress**, ready to paste into your privacy policy.
+
+### Right to erasure
+
+Because no reversible identifier is stored, there is no way to resolve "delete the data for visitor X" — the table simply has no link to a person. To erase all A/B testing data, an admin can `TRUNCATE wp_abtest_events`.
+
+### Consent gating (opt-in)
+
+If your site uses a consent banner, enable **A/B Tests → Settings → Privacy & consent → Require consent**. When on, the plugin sets no cookie and logs no event until the `abtest_visitor_has_consent` filter returns `true`. Without consent, visitors silently see Variant A — no data collected, no rendering surprise.
+
+Wire your banner to the filter:
+
+```php
+// Complianz / Really Simple Plugins — fires JS event on consent change. The
+// PHP side exposes cmplz_user_consent( 'statistics' ) returning true/false.
+add_filter( 'abtest_visitor_has_consent', function () {
+    return function_exists( 'cmplz_user_consent' )
+        ? (bool) cmplz_user_consent( 'statistics' )
+        : null;
+} );
+```
+
+```php
+// CookieYes — reads its own consent cookie.
+add_filter( 'abtest_visitor_has_consent', function () {
+    if ( empty( $_COOKIE['cookieyes-consent'] ) ) return null;
+    return false !== strpos( $_COOKIE['cookieyes-consent'], 'analytics:yes' );
+} );
+```
+
+```php
+// Cookiebot — server-side parse of the CookieConsent cookie.
+add_filter( 'abtest_visitor_has_consent', function () {
+    if ( empty( $_COOKIE['CookieConsent'] ) ) return null;
+    return false !== strpos( wp_unslash( $_COOKIE['CookieConsent'] ), 'statistics:true' );
+} );
+```
+
+Filter return convention: `true` → track, `false` → block, `null` → unknown / no banner wired → block (safe default when "Require consent" is on).
+
+---
+
 ## REST API
 
 ```

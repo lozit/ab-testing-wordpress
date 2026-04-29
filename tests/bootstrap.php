@@ -55,6 +55,42 @@ if ( ! function_exists( 'is_ssl' ) ) {
 		return false;
 	}
 }
+if ( ! function_exists( '__return_true' ) ) {
+	function __return_true(): bool {
+		return true;
+	}
+}
+if ( ! function_exists( '__return_false' ) ) {
+	function __return_false(): bool {
+		return false;
+	}
+}
+if ( ! function_exists( '__return_null' ) ) {
+	function __return_null() {
+		return null;
+	}
+}
+
+// In-memory option store so unit tests can simulate get_option / update_option
+// without booting WordPress.
+$GLOBALS['__abtest_options'] = [];
+if ( ! function_exists( 'get_option' ) ) {
+	function get_option( string $key, $default = false ) {
+		return $GLOBALS['__abtest_options'][ $key ] ?? $default;
+	}
+}
+if ( ! function_exists( 'update_option' ) ) {
+	function update_option( string $key, $value, $autoload = null ): bool {
+		$GLOBALS['__abtest_options'][ $key ] = $value;
+		return true;
+	}
+}
+if ( ! function_exists( 'delete_option' ) ) {
+	function delete_option( string $key ): bool {
+		unset( $GLOBALS['__abtest_options'][ $key ] );
+		return true;
+	}
+}
 
 // Minimal hook stubs for unit tests that touch add_filter / apply_filters / remove_filter.
 $GLOBALS['__abtest_filters'] = [];

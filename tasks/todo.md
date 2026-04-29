@@ -96,9 +96,9 @@
 - [ ] Refactor `Stats::for_experiment` → batch query (1 SQL pour N experiments)
 - [ ] Bump WP-env vers 6.9 (et dropper le pin `~6.5.0` sur wp-phpunit)
 
-### RGPD / conformité
-- [ ] Option "respecter consentement" si plugin de consentement détecté
-- [ ] Doc cookie pour politique de confidentialité
+### RGPD / conformité (v0.8.0)
+- [x] **Option "respecter consentement"** — toggle "Require consent" dans Settings + filtre `abtest_visitor_has_consent` (true/false/null) + chemin silent baseline (zéro cookie, zéro impression) quand pas de consent. Off par défaut, no breaking change. Helper `Consent::is_blocked()` + 5 tests unitaires.
+- [x] **Doc cookie pour politique de confidentialité** — 3 surfaces : (a) `wp_add_privacy_policy_content()` natif WP via `includes/PrivacyPolicy.php` (visible dans Settings → Privacy → Policy Guide), (b) section `## Privacy & GDPR` dans README.md avec snippets Complianz/CookieYes/Cookiebot, (c) section `== Privacy ==` dans readme.txt.
 
 ### HTML import — limites mineures (v0.7.0)
 - [x] **Format zip avec assets** (CSS, JS, images) — extraction sécurisée vers `wp-content/uploads/abtest-templates/{slug}/` (extension allowlist + path-traversal guard), réécriture des URL relatives href/src/srcset/url() en absolues dans le HTML stocké
