@@ -160,11 +160,15 @@ final class Webhook {
 		return wp_remote_post(
 			(string) $hook['url'],
 			[
-				'method'   => 'POST',
-				'timeout'  => $blocking ? 8 : 1,
-				'blocking' => $blocking,
-				'headers'  => $headers,
-				'body'     => $body,
+				'method'    => 'POST',
+				'timeout'   => $blocking ? 8 : 1,
+				'blocking'  => $blocking,
+				'headers'   => $headers,
+				'body'      => $body,
+				// Explicit so a third-party `http_request_args` filter can't silently flip
+				// SSL verification off — webhook endpoints carry analytics events, not
+				// secrets, but we don't want to be the channel for a downgrade attack.
+				'sslverify' => true,
 			]
 		);
 	}

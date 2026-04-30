@@ -4,7 +4,7 @@ Tags: ab testing, split testing, conversion, analytics
 Requires at least: 6.0
 Tested up to: 6.9
 Requires PHP: 8.1
-Stable tag: 0.9.0
+Stable tag: 0.9.1
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -106,6 +106,10 @@ No. Logged-in users with `edit_posts` capability are bypassed and always see the
 v1 only swaps the entire page (the variant must be a separate post). Block-level and product-level testing are on the roadmap.
 
 == Changelog ==
+
+= 0.9.1 =
+* Security hardening (post-audit): outbound webhook POSTs now pass `'sslverify' => true` explicitly so a third-party `http_request_args` filter can't silently downgrade SSL verification. Aligns with the explicit setting already in the GA4 integration.
+* HTML import error message corrected — used to say "Only .html and .htm files are accepted" even though .zip has been accepted since v0.7.0. Message now generated from the live ALLOWED_EXTS constant and reports the rejected extension.
 
 = 0.9.0 =
 * Multilingual support (WPML / Polylang): a single experiment with `test_url = /promo/` now matches `/fr/promo/`, `/en/promo/`, `/de/promo/`, etc. The bundled `MultiLanguage` helper auto-detects WPML/Polylang and strips the language prefix from request paths before matching. Compound slugs (`pt-br`, `en-us`) supported. Mid-path occurrences of a language slug (e.g. `/blog/fr/x/`) are NOT stripped — only true URL prefixes.

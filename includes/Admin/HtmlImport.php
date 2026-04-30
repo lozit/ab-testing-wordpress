@@ -239,7 +239,14 @@ final class HtmlImport {
 		$name = isset( $file['name'] ) ? sanitize_file_name( (string) $file['name'] ) : '';
 		$ext  = strtolower( (string) pathinfo( $name, PATHINFO_EXTENSION ) );
 		if ( ! in_array( $ext, self::ALLOWED_EXTS, true ) ) {
-			self::redirect_error( __( 'Only .html and .htm files are accepted.', 'ab-testing-wordpress' ) );
+			self::redirect_error(
+				sprintf(
+					/* translators: 1: comma-separated list of allowed extensions, 2: rejected extension */
+					__( 'Only %1$s files are accepted (got: .%2$s).', 'ab-testing-wordpress' ),
+					'.' . implode( ', .', self::ALLOWED_EXTS ),
+					'' === $ext ? '(none)' : $ext
+				)
+			);
 		}
 
 		$tmp_name = isset( $file['tmp_name'] ) ? (string) $file['tmp_name'] : '';
