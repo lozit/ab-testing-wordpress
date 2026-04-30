@@ -40,6 +40,7 @@ final class Admin {
 		add_action( 'admin_post_abtest_test_webhook', [ Settings::class, 'handle_test_webhook' ] );
 		add_action( 'admin_post_abtest_export_csv', [ CsvExport::class, 'handle' ] );
 		add_action( 'admin_enqueue_scripts', [ $this, 'enqueue_assets' ] );
+		HelpTabs::register();
 	}
 
 	public function register_menu(): void {

@@ -70,6 +70,16 @@ if ( ! function_exists( '__return_null' ) ) {
 		return null;
 	}
 }
+if ( ! function_exists( '__' ) ) {
+	function __( string $text, string $domain = 'default' ): string {
+		return $text;
+	}
+}
+if ( ! function_exists( 'number_format_i18n' ) ) {
+	function number_format_i18n( $number, int $decimals = 0 ): string {
+		return number_format( (float) $number, $decimals, '.', ',' );
+	}
+}
 
 // In-memory option store so unit tests can simulate get_option / update_option
 // without booting WordPress.

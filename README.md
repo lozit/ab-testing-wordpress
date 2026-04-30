@@ -40,6 +40,8 @@ Built around three core ideas:
 - **Date range filter** (custom from/to + presets: last 7/30 days, all time)
 - **Chart.js timeline** per URL — see how conversion evolved across iterations
 - Group view of experiments by URL (default hides URLs without a running experiment)
+- **Contextual help** built into wp-admin — top-right "Help" tab on the A/B Tests pages explains p-value, α, Bonferroni correction, and what to do when "no winner" shows. Designed for non-statisticians.
+- **"No winner" tooltip** auto-explains the reason on hover (too early, sample too small, no real effect, borderline) so you know whether to wait, stop, or move on.
 
 ### Caching
 - **Universal `Cache-Control: no-store` headers** sent on every test page response — bypass works on Cloudflare, Kinsta, Varnish, nginx page cache out of the box

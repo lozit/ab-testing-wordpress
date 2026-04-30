@@ -76,6 +76,8 @@
 - [x] **Drag & drop file picker** (drop zone visuelle avec hover state, taille + extension validées côté client)
 - [x] **Filtre période** (from/to + presets 7/30 jours/all-time) sur stats + chart
 - [x] **Filtre default "running only"** sur les URLs (cache les URLs sans exp running, toggle "Show all")
+- [x] **Help / Info zone didactique** (v0.10.0) — onglets WordPress natifs (top-right "Help") sur les A/B Tests pages, 4 tabs (Quick start, Stats expliquées, Multi-variantes, Privacy & RGPD) écrits pour des non-statisticiens.
+- [x] **Tooltip contextuel sur "No winner"** (v0.10.0) — explique en 1 phrase POURQUOI : trop tôt / pas assez d'échantillons / borderline / vrai null result / fallback générique. Helper `Abtest\Admin\StatsExplain` testable (8 unit tests).
 
 ### Intégrations externes
 - [x] **Webhook custom** générique (Zapier, Mixpanel, Segment, Slack, n8n) — liste de webhooks dans Settings + HMAC SHA256 optionnel + filtre fire_on (all / conversion-only) + bouton "Send test event"

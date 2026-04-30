@@ -4,7 +4,7 @@ Tags: ab testing, split testing, conversion, analytics
 Requires at least: 6.0
 Tested up to: 6.9
 Requires PHP: 8.1
-Stable tag: 0.9.3
+Stable tag: 0.10.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -108,6 +108,10 @@ No. Logged-in users with `edit_posts` capability are bypassed and always see the
 v1 only swaps the entire page (the variant must be a separate post). Block-level and product-level testing are on the roadmap.
 
 == Changelog ==
+
+= 0.10.0 =
+* New : **WordPress contextual help** on the A/B Tests screens. Click "Help" at the top-right of any A/B Tests page to get 4 didactic tabs : Quick start, Stats expliquées (p-value / α / "no winner" reasons), Multi-variantes (Bonferroni correction), Privacy & RGPD. Designed for non-statisticians installing the plugin for the first time.
+* New : **contextual tooltip on the "No winner" badge** in the experiments list. Hover (or screen-reader-focus) the badge to see WHY this experiment doesn't have a winner — explanation auto-detects between : "trop tôt" (running < 14 days), "échantillon trop petit" (< 200 imp/variant), "borderline" (p just above α), "vrai null result" (rates within ±15%), or generic "continuer le test". Powered by a new pure-function helper `Abtest\Admin\StatsExplain` with 8 unit tests covering each branch.
 
 = 0.9.3 =
 * PHPCS WordPress Coding Standards : repaid the 1083-finding cosmetic dette. The codebase is now fully WPCS-clean and the GitHub Actions `lint` job is BLOCKING (was `continue-on-error`). Any new code that violates the ruleset fails the build.

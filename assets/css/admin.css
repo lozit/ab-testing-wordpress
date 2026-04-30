@@ -438,3 +438,27 @@
 	color: #50575e;
 	font-size: 12px;
 }
+
+/* "No winner" badge with hover-explanation tooltip (uses native `title`). */
+.abtest-no-winner {
+	cursor: help;
+	border-bottom: 1px dotted currentColor;
+}
+.abtest-help-icon {
+	display: inline-block;
+	width: 14px;
+	height: 14px;
+	line-height: 14px;
+	text-align: center;
+	border-radius: 50%;
+	background: #dcdcde;
+	color: #50575e;
+	font-size: 10px;
+	font-weight: 600;
+	margin-left: 4px;
+	vertical-align: 1px;
+}
+.abtest-no-winner:hover .abtest-help-icon {
+	background: #2271b1;
+	color: #fff;
+}

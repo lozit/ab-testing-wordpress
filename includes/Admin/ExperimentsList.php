@@ -235,12 +235,17 @@ final class ExperimentsList {
 						);
 						?>
 					</span>
-				<?php else : ?>
-					<span class="abtest-muted abtest-ci">
+					<?php
+				else :
+					$reason = StatsExplain::no_winner_reason( $multi, $status, $started_at );
+					?>
+					<span class="abtest-muted abtest-ci abtest-no-winner" title="<?php echo esc_attr( $reason ); ?>">
 						<?php
 						/* translators: %s: alpha threshold */
 						printf( esc_html__( 'No winner (α=%s)', 'ab-testing-wordpress' ), esc_html( number_format_i18n( (float) $multi['alpha'], 3 ) ) );
 						?>
+						<span class="abtest-help-icon" aria-hidden="true">?</span>
+						<span class="screen-reader-text"><?php echo esc_html( $reason ); ?></span>
 					</span>
 				<?php endif; ?>
 			</td>
