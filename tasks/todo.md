@@ -78,6 +78,7 @@
 - [x] **Default "running only" filter** on URLs (hides URLs without a running experiment, "Show all" toggle)
 - [x] **Didactic Help / Info area** (v0.10.0) — native WordPress help tabs (top-right "Help") on the A/B Tests pages, 4 tabs (Quick start, Stats explained, Multi-variant, Privacy & GDPR) written for non-statisticians.
 - [x] **Contextual tooltip on "No winner"** (v0.10.0) — explains in one sentence WHY: too early / not enough samples / borderline / genuine null result / generic fallback. Pure helper `Abtest\Admin\StatsExplain` with 8 unit tests covering each branch.
+- [x] **Per-URL `noindex` toggle** (v0.11.0) — SEO row on the experiment edit form. When checked, every visit to that URL emits both `<meta robots="noindex,nofollow">` and `X-Robots-Tag: noindex, nofollow` HTTP header. URL-scoped (`abtest_url_settings` option), shared across every experiment on the same URL. New `Abtest\UrlSettings` helper + 7 unit tests + e2e verified in wp-env.
 
 ### External integrations
 - [x] **Generic webhooks** (Zapier, Mixpanel, Segment, Slack, n8n) — webhook list in Settings + optional HMAC SHA256 + `fire_on` filter (all / conversion-only) + "Send test event" button

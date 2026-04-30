@@ -31,6 +31,7 @@ Built around three core ideas:
 - Variant pages auto-hidden (`private` post status) so they're not directly accessible
 - **Unicode paths** supported (`/promotion-été/` matches both raw and percent-encoded requests)
 - **Query string subset matching** — `test_url = /promo/?campaign=fb` matches `/promo/?campaign=fb&utm_source=email` (param order canonicalized so `?b=2&a=1` and `?a=1&b=2` are equivalent)
+- **Per-URL `noindex` toggle** — checkbox on the experiment edit form sends `<meta robots>` + `X-Robots-Tag: noindex, nofollow` on every visit to a flagged URL. Recommended for paid-traffic landing pages or any URL where you don't want both A/B variants to compete in search results.
 
 ### Tracking & Stats
 - Internal events table (impressions + conversions) — full ownership of your data

@@ -4,7 +4,7 @@ Tags: ab testing, split testing, conversion, analytics
 Requires at least: 6.0
 Tested up to: 6.9
 Requires PHP: 8.1
-Stable tag: 0.10.1
+Stable tag: 0.11.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -108,6 +108,11 @@ No. Logged-in users with `edit_posts` capability are bypassed and always see the
 v1 only swaps the entire page (the variant must be a separate post). Block-level and product-level testing are on the roadmap.
 
 == Changelog ==
+
+= 0.11.0 =
+* New: **per-URL no-index toggle**. A new "SEO" row on the experiment edit form lets you mark any test URL as no-index. When checked, every visit to that URL emits both a `<meta name="robots" content="noindex,nofollow">` tag and a matching `X-Robots-Tag` HTTP header — regardless of which experiment is currently running. Recommended for landing pages dedicated to paid traffic, or any URL where you don't want both A/B variants to compete in search results.
+* The setting is URL-scoped (stored in a new `abtest_url_settings` option keyed by URL path) so every experiment that lands on the same URL inherits it. Future URL-scoped flags can plug into the same store.
+* New `Abtest\UrlSettings` helper class with 7 unit tests covering normalization, default pruning, and per-URL independence.
 
 = 0.10.1 =
 * i18n cleanup: every committed file is now in English. The plugin's user-facing strings (HelpTabs, StatsExplain) ship as English source so the standard WordPress translation pipeline (`.pot` / `.po`) can produce localized versions later. Audit reports, todo, slash commands, internal rules, lessons-learned all translated. CLAUDE.md adds an explicit "English only in the repo" rule to prevent regressions.

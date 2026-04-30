@@ -311,6 +311,7 @@ final class Plugin {
 		Watcher::register();
 		PrivacyPolicy::register();
 		MultiLanguage::register();
+		UrlSettings::register();
 		Integrations\Ga4::instance()->register();
 		Integrations\Webhook::instance()->register();
 

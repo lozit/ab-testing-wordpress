@@ -333,6 +333,16 @@ final class Admin {
 			\Abtest\UrlScripts::set( $test_url, $entries );
 		}
 
+		// Persist URL-level flags (today: noindex). Same shared-across-experiments scope.
+		if ( '' !== $test_url ) {
+			\Abtest\UrlSettings::set(
+				$test_url,
+				[
+					'noindex' => ! empty( $_POST['url_noindex'] ),
+				]
+			);
+		}
+
 		if ( '' !== $transition_message ) {
 			$this->redirect_with_notice( 'warning', $transition_message, [ 'action' => 'edit', 'experiment' => $id ] );
 		}

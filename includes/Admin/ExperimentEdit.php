@@ -83,6 +83,7 @@ final class ExperimentEdit {
 		$post         = $is_new ? null : get_post( $experiment_id );
 		$title        = $post ? $post->post_title : '';
 		$test_path    = $is_new ? '' : Experiment::get_test_url( $experiment_id );
+		$url_noindex  = '' !== $test_path ? \Abtest\UrlSettings::is_noindex( $test_path ) : false;
 
 		// Pre-fill test_url from query string when creating a new experiment via the
 		// per-URL "+ Add experiment to this URL" button.
@@ -167,6 +168,18 @@ final class ExperimentEdit {
 							<input type="text" id="abtest-test-url" name="test_url" class="regular-text code" placeholder="/promo/" value="<?php echo esc_attr( $test_path ); ?>" required>
 							<p class="description">
 								<?php esc_html_e( 'Public URL where visitors will see the A/B test. Examples: /promo/, /landing-2026/, /pricing/new/, /promotion-été/, /中文/. Optional query params target campaigns: /promo/?campaign=fb (visitor URL must include campaign=fb; extra params like utm_source or fbclid are tolerated).', 'ab-testing-wordpress' ); ?>
+							</p>
+						</td>
+					</tr>
+					<tr>
+						<th scope="row"><?php esc_html_e( 'SEO', 'ab-testing-wordpress' ); ?></th>
+						<td>
+							<label>
+								<input type="checkbox" id="abtest-url-noindex" name="url_noindex" value="1" <?php checked( $url_noindex ); ?>>
+								<?php esc_html_e( 'Mark this URL as no-index (block search engines)', 'ab-testing-wordpress' ); ?>
+							</label>
+							<p class="description">
+								<?php esc_html_e( 'Sends `<meta name="robots" content="noindex,nofollow">` and the matching `X-Robots-Tag` HTTP header on every visit to this URL — regardless of which experiment is running. Recommended for landing pages dedicated to paid traffic, or any URL where you don\'t want both A/B variants to compete in search results. The setting is per-URL: every experiment that lands on the same URL inherits it.', 'ab-testing-wordpress' ); ?>
 							</p>
 						</td>
 					</tr>
