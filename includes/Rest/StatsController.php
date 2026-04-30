@@ -164,7 +164,7 @@ final class StatsController {
 				'ended_at'    => (string) get_post_meta( $exp_id, Experiment::META_ENDED_AT, true ),
 				'control_id'  => Experiment::get_control_id( $exp_id ),     // legacy, == variants[0].post_id
 				'variant_id'  => Experiment::get_variant_id( $exp_id ),     // legacy, == variants[1].post_id
-				'variants'    => $variants_meta,                             // [{label:'A', post_id:5}, ...]
+				'variants'    => $variants_meta,                             // ordered list, label + post_id per entry
 				'goal'        => Experiment::get_goal( $exp_id ),
 				'stats'       => [
 					// Multi-variant payload (preferred for new clients).
@@ -210,5 +210,4 @@ final class StatsController {
 			200
 		);
 	}
-
 }

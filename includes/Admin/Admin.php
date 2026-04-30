@@ -148,6 +148,7 @@ final class Admin {
 			wp_die( esc_html__( 'You are not allowed to access this page.', 'ab-testing-wordpress' ), 403 );
 		}
 
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only routing param, no mutation
 		$action = isset( $_GET['action'] ) ? sanitize_key( wp_unslash( $_GET['action'] ) ) : 'list';
 
 		switch ( $action ) {
@@ -570,8 +571,16 @@ final class Admin {
 	/**
 	 * Multi-variant aware validation. Replaces the old A/B-specific `validate()`.
 	 *
-	 * @param array<int, array{post_id:int}> $variants
+	 * @param string                          $title       Experiment title.
+	 * @param string                          $test_url    Normalized test URL path.
+	 * @param array<int, array{post_id:int}>  $variants    List of variant entries.
+	 * @param string                          $goal_type   Goal type (Experiment::GOAL_*).
+	 * @param string                          $goal_value  Goal value (URL or selector).
+	 * @param string                          $status      Requested status (Experiment::STATUS_*).
+	 * @param int                             $editing_id  Existing experiment ID when editing, 0 when creating new.
+	 * @return string[] List of validation error messages (empty when valid).
 	 */
+	// phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.FoundAfterLastUsed -- $editing_id reserved for future "uniqueness vs other experiments" check
 	private function validate_multi( string $title, string $test_url, array $variants, string $goal_type, string $goal_value, string $status, int $editing_id = 0 ): array {
 		$errors = [];
 		if ( '' === $title ) {
@@ -618,6 +627,7 @@ final class Admin {
 		return $errors;
 	}
 
+	// phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.FoundAfterLastUsed -- legacy A/B validate, $editing_id kept for signature parity with validate_multi
 	private function validate( string $title, string $test_url, int $control_id, int $variant_id, string $goal_type, string $goal_value, string $status, int $editing_id = 0 ): array {
 		$errors = [];
 		if ( '' === $title ) {
@@ -656,14 +666,18 @@ final class Admin {
 	}
 
 	private function current_experiment_id(): int {
+		// phpcs:disable WordPress.Security.NonceVerification.Recommended -- read-only ID for view, no mutation
 		if ( ! isset( $_GET['experiment'] ) ) {
 			return 0;
 		}
 		return absint( wp_unslash( $_GET['experiment'] ) );
+		// phpcs:enable
 	}
 
 	/**
-	 * @param array<string,scalar> $extra_args
+	 * @param string                $type       Notice severity ('success', 'warning', 'info', 'error').
+	 * @param string                $message    Human-readable message.
+	 * @param array<string,scalar>  $extra_args Extra query args appended to the redirect URL.
 	 */
 	private function redirect_with_notice( string $type, string $message, array $extra_args = [] ): void {
 		$valid_types = [ 'success', 'warning', 'info', 'error' ];
@@ -684,7 +698,7 @@ final class Admin {
 		if ( ! isset( $_GET['abtest_notice'] ) ) {
 			return;
 		}
-		// phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended,WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- sanitize_text_field() wraps the whole expression
 		$message = sanitize_text_field( rawurldecode( wp_unslash( $_GET['abtest_notice'] ) ) );
 		// phpcs:ignore WordPress.Security.NonceVerification.Recommended
 		$raw_type = isset( $_GET['abtest_notice_t'] ) ? sanitize_key( wp_unslash( $_GET['abtest_notice_t'] ) ) : 'error';

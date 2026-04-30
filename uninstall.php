@@ -14,7 +14,7 @@ $wpdb->query( "DROP TABLE IF EXISTS {$wpdb->prefix}abtest_events" ); // phpcs:ig
 delete_option( 'abtest_db_version' );
 delete_option( 'abtest_settings' );
 
-$experiments = get_posts(
+$abtest_experiments = get_posts(
 	[
 		'post_type'      => 'ab_experiment',
 		'posts_per_page' => -1,
@@ -22,6 +22,6 @@ $experiments = get_posts(
 		'fields'         => 'ids',
 	]
 );
-foreach ( $experiments as $experiment_id ) {
-	wp_delete_post( (int) $experiment_id, true );
+foreach ( $abtest_experiments as $abtest_experiment_id ) {
+	wp_delete_post( (int) $abtest_experiment_id, true );
 }

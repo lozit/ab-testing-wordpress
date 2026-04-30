@@ -47,7 +47,8 @@ final class Schema {
 	public static function drop(): void {
 		global $wpdb;
 		$table = self::events_table();
-		// Schema name is plugin-controlled — safe interpolation.
-		$wpdb->query( "DROP TABLE IF EXISTS {$table}" ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
+		// $table from self::events_table() is plugin-controlled — safe interpolation.
+		// phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared,WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$wpdb->query( "DROP TABLE IF EXISTS {$table}" );
 	}
 }

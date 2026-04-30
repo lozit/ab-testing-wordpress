@@ -111,6 +111,7 @@ final class MultiLanguage {
 		// WPML — apply_filters('wpml_active_languages') returns an array keyed
 		// by language code, each entry has 'language_code' and 'url' fields.
 		if ( has_filter( 'wpml_active_languages' ) || function_exists( 'icl_get_languages' ) ) {
+			// phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- WPML's own hook, called from outside their plugin
 			$wpml = apply_filters( 'wpml_active_languages', null );
 			if ( is_array( $wpml ) ) {
 				foreach ( $wpml as $lang ) {

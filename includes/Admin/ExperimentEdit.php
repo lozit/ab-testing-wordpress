@@ -19,7 +19,9 @@ final class ExperimentEdit {
 	 * Render a single variant row : label badge + page select + remove button.
 	 * The label is positional (A for index 0, B for 1, etc.) and re-numbered by JS on add/remove.
 	 *
-	 * @param \WP_Post[] $pages
+	 * @param int        $index            Position in the variants list (0 = A, 1 = B, ...).
+	 * @param int        $selected_post_id Currently selected page post ID, or 0 for "no selection".
+	 * @param \WP_Post[] $pages            Pages to populate the dropdown with.
 	 */
 	public static function render_variant_row( int $index, int $selected_post_id, array $pages ): void {
 		$label = Experiment::VARIANT_LABELS[ $index ] ?? '?';
@@ -69,7 +71,7 @@ final class ExperimentEdit {
 					<?php esc_html_e( 'Remove', 'ab-testing-wordpress' ); ?>
 				</button>
 			</div>
-			<textarea name="url_scripts[<?php echo (int) $index; ?>][code]" rows="6" class="large-text code" placeholder="<?php esc_attr_e( '<script>gtag(\'event\', \'page_view\')</script>', 'ab-testing-wordpress' ); ?>"><?php echo esc_textarea( $code ); ?></textarea>
+			<textarea name="url_scripts[<?php echo (int) $index; ?>][code]" rows="6" class="large-text code" placeholder="<?php /* phpcs:ignore WordPress.WP.I18n.NoHtmlWrappedStrings -- example snippet shown in placeholder, intentional */ esc_attr_e( '<script>gtag(\'event\', \'page_view\')</script>', 'ab-testing-wordpress' ); ?>"><?php echo esc_textarea( $code ); ?></textarea>
 		</div>
 		<?php
 	}
@@ -182,7 +184,7 @@ final class ExperimentEdit {
 							</div>
 							<p>
 								<button type="button" class="button button-secondary abtest-variant-add"
-								        <?php echo count( $rendered ) >= Experiment::MAX_VARIANTS ? 'disabled' : ''; ?>>
+										<?php echo count( $rendered ) >= Experiment::MAX_VARIANTS ? 'disabled' : ''; ?>>
 									+ <?php esc_html_e( 'Add variant', 'ab-testing-wordpress' ); ?>
 								</button>
 								<span class="abtest-variant-help description">
@@ -357,7 +359,8 @@ final class ExperimentEdit {
 				}
 				?>
 				<p class="submit abtest-status-buttons">
-					<?php foreach ( $allowed_statuses as $option ) :
+					<?php
+					foreach ( $allowed_statuses as $option ) :
 						$is_keep    = ( $option === $status && ! $is_new );
 						$label      = $is_keep ? $button_specs[ $option ]['keep'] : $button_specs[ $option ]['to'];
 						$is_primary = ( $option === $primary );

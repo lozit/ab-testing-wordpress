@@ -67,7 +67,7 @@ final class ExperimentsList {
 				foreach ( $grouped as $url => $exps_in_group ) {
 					if ( ! isset( $running_by_url[ $url ] ) ) {
 						unset( $grouped[ $url ] );
-						$hidden_count++;
+						++$hidden_count;
 					}
 				}
 			}
@@ -114,8 +114,8 @@ final class ExperimentsList {
 						<small class="abtest-url-meta">
 							<?php
 							printf(
-								/* translators: 1: number of experiments, 2: total impressions, 3: total conversions, 4: overall rate */
 								esc_html(
+									/* translators: 1: number of experiments, 2: total impressions, 3: total conversions, 4: overall rate */
 									_n(
 										'%1$d experiment · %2$s impressions · %3$s conversions · %4$s overall',
 										'%1$d experiments · %2$s impressions · %3$s conversions · %4$s overall',
@@ -157,9 +157,11 @@ final class ExperimentsList {
 						</tbody>
 					</table>
 
-					<?php if ( '' !== $url ) {
+					<?php
+					if ( '' !== $url ) {
 						self::render_url_chart( $url, $exps, $from, $to );
-					} ?>
+					}
+					?>
 				</div>
 			<?php endforeach; ?>
 		</div>
@@ -252,9 +254,9 @@ final class ExperimentsList {
 					| <a href="<?php echo esc_url( self::status_url( $exp_id, Experiment::STATUS_ENDED ) ); ?>"><?php esc_html_e( 'End', 'ab-testing-wordpress' ); ?></a>
 				<?php elseif ( Experiment::STATUS_PAUSED === $status ) : ?>
 					| <a href="<?php echo esc_url( self::resume_url( $exp_id ) ); ?>"
-					     class="abtest-resume"
-					     title="<?php esc_attr_e( 'Create a new experiment from this one and start it. The original keeps its locked dates.', 'ab-testing-wordpress' ); ?>"
-					     onclick="return confirm('<?php echo esc_js( __( 'Resume by creating a new experiment with fresh dates? The original stays paused with its current period locked.', 'ab-testing-wordpress' ) ); ?>');">
+						 class="abtest-resume"
+						 title="<?php esc_attr_e( 'Create a new experiment from this one and start it. The original keeps its locked dates.', 'ab-testing-wordpress' ); ?>"
+						 onclick="return confirm('<?php echo esc_js( __( 'Resume by creating a new experiment with fresh dates? The original stays paused with its current period locked.', 'ab-testing-wordpress' ) ); ?>');">
 						<?php esc_html_e( 'Resume', 'ab-testing-wordpress' ); ?>
 					</a>
 					| <a href="<?php echo esc_url( self::status_url( $exp_id, Experiment::STATUS_ENDED ) ); ?>"><?php esc_html_e( 'End', 'ab-testing-wordpress' ); ?></a>
@@ -264,8 +266,8 @@ final class ExperimentsList {
 					|
 					<a href="<?php echo esc_url( self::replace_running_url( $exp_id ) ); ?>"
 					   class="abtest-replace"
-					   title="<?php echo esc_attr( sprintf( __( 'Pause "%s" and start this one in a single action.', 'ab-testing-wordpress' ), get_the_title( $running_other ) ) ); ?>"
-					   onclick="return confirm('<?php echo esc_js( sprintf( __( 'Replace "%1$s" (running) with "%2$s"? The current one will be paused.', 'ab-testing-wordpress' ), get_the_title( $running_other ), get_the_title( $experiment ) ) ); ?>');">
+					   title="<?php echo esc_attr( sprintf( /* translators: %s: title of the experiment that will be paused */ __( 'Pause "%s" and start this one in a single action.', 'ab-testing-wordpress' ), get_the_title( $running_other ) ) ); ?>"
+					   onclick="return confirm('<?php echo esc_js( sprintf( /* translators: 1: running experiment title, 2: new experiment title */ __( 'Replace "%1$s" (running) with "%2$s"? The current one will be paused.', 'ab-testing-wordpress' ), get_the_title( $running_other ), get_the_title( $experiment ) ) ); ?>');">
 						<?php esc_html_e( 'Replace running', 'ab-testing-wordpress' ); ?>
 					</a>
 				<?php endif; ?>
@@ -290,11 +292,14 @@ final class ExperimentsList {
 			$grouped[ $url ][] = $exp;
 		}
 		// Sort URLs alphabetically; empty URL bucket goes last.
-		uksort( $grouped, static function ( $a, $b ) {
-			if ( '' === $a ) { return 1; }
-			if ( '' === $b ) { return -1; }
-			return strcmp( $a, $b );
-		} );
+		uksort(
+			$grouped,
+			static function ( $a, $b ) {
+				if ( '' === $a ) { return 1; }
+				if ( '' === $b ) { return -1; }
+				return strcmp( $a, $b );
+			}
+		);
 		return $grouped;
 	}
 
@@ -317,7 +322,10 @@ final class ExperimentsList {
 	/**
 	 * Render a Chart.js timeline canvas + JSON payload for one URL block.
 	 *
-	 * @param \WP_Post[] $exps
+	 * @param string     $url  Test URL the chart is plotting.
+	 * @param \WP_Post[] $exps Experiments running (or that ran) on this URL.
+	 * @param string     $from Optional from-date filter (YYYY-MM-DD).
+	 * @param string     $to   Optional to-date filter (YYYY-MM-DD).
 	 */
 	private static function render_url_chart( string $url, array $exps, string $from = '', string $to = '' ): void {
 		$breakdown = Stats::daily_breakdown_for_url( $url, $from, $to );
@@ -359,13 +367,15 @@ final class ExperimentsList {
 			<?php elseif ( $hidden_count > 0 ) : ?>
 				<?php
 				printf(
-					/* translators: %d: number of hidden URLs */
-					esc_html( _n(
-						'%d archived URL hidden (no running experiment).',
-						'%d archived URLs hidden (no running experiment).',
-						$hidden_count,
-						'ab-testing-wordpress'
-					) ),
+					esc_html(
+						/* translators: %d: number of hidden URLs */
+						_n(
+							'%d archived URL hidden (no running experiment).',
+							'%d archived URLs hidden (no running experiment).',
+							$hidden_count,
+							'ab-testing-wordpress'
+						)
+					),
 					(int) $hidden_count
 				);
 				?>
@@ -380,7 +390,7 @@ final class ExperimentsList {
 	 * lift + 95% CI vs the baseline. Significant comparisons get the green badge.
 	 *
 	 * @param array<int, array{label:string, post_id:int}> $variant_specs
-	 * @param array $multi   Output of Stats::compute_multi()
+	 * @param array                                        $multi   Output of Stats::compute_multi()
 	 */
 	private static function render_variants_cell( array $variant_specs, array $multi ): void {
 		if ( empty( $variant_specs ) ) {
@@ -390,7 +400,8 @@ final class ExperimentsList {
 		$baseline = (string) ( $multi['baseline'] ?? 'A' );
 		?>
 		<div class="abtest-variants-stack">
-			<?php foreach ( $variant_specs as $v ) :
+			<?php
+			foreach ( $variant_specs as $v ) :
 				$label = (string) $v['label'];
 				$pid   = (int) $v['post_id'];
 				$row   = $multi['variants'][ $label ] ?? [ 'impressions' => 0, 'conversions' => 0, 'rate' => 0 ];
@@ -402,6 +413,7 @@ final class ExperimentsList {
 					<span class="abtest-variant-counts">
 						<?php
 						printf(
+							/* translators: 1: conversions, 2: impressions, 3: conversion rate */
 							esc_html__( '%1$d / %2$d (%3$s)', 'ab-testing-wordpress' ),
 							(int) $row['conversions'],
 							(int) $row['impressions'],
@@ -420,8 +432,8 @@ final class ExperimentsList {
 						<?php else : ?>
 							<span class="abtest-muted abtest-ci">
 								<?php
-								/* translators: 1: low bound, 2: high bound */
 								printf(
+									/* translators: 1: low bound, 2: high bound */
 									esc_html__( '95%% CI [%1$s ; %2$s]', 'ab-testing-wordpress' ),
 									esc_html( self::pct( (float) $cmp['lift_ci_low'], true ) ),
 									esc_html( self::pct( (float) $cmp['lift_ci_high'], true ) )
@@ -468,10 +480,13 @@ final class ExperimentsList {
 				<span class="abtest-date-active">
 					<?php
 					if ( '' !== $from && '' !== $to ) {
+						/* translators: 1: from date (YYYY-MM-DD), 2: to date (YYYY-MM-DD) */
 						printf( esc_html__( 'Showing events from %1$s to %2$s', 'ab-testing-wordpress' ), esc_html( $from ), esc_html( $to ) );
 					} elseif ( '' !== $from ) {
+						/* translators: %s: from date (YYYY-MM-DD) */
 						printf( esc_html__( 'Showing events since %s', 'ab-testing-wordpress' ), esc_html( $from ) );
 					} else {
+						/* translators: %s: to date (YYYY-MM-DD) */
 						printf( esc_html__( 'Showing events up to %s', 'ab-testing-wordpress' ), esc_html( $to ) );
 					}
 					?>

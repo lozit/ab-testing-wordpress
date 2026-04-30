@@ -17,8 +17,8 @@ final class Experiment {
 
 	public const META_TEST_URL          = '_abtest_test_url';
 	public const META_VARIANTS          = '_abtest_variants';
-	public const META_CONTROL_ID        = '_abtest_control_id';      // legacy (mirrors variants[0])
-	public const META_VARIANT_ID        = '_abtest_variant_id';      // legacy (mirrors variants[1])
+	public const META_CONTROL_ID        = '_abtest_control_id';      // legacy — mirrors first variant.
+	public const META_VARIANT_ID        = '_abtest_variant_id';      // legacy — mirrors second variant.
 	public const META_GOAL_TYPE         = '_abtest_goal_type';
 	public const META_GOAL_VALUE        = '_abtest_goal_value';
 	public const META_STATUS            = '_abtest_status';
@@ -267,7 +267,8 @@ final class Experiment {
 	 * Persist the variants list, syncing the legacy single-pair meta for
 	 * back-compat code that still calls get_control_id / get_variant_id.
 	 *
-	 * @param array<int, array{label:string, post_id:int}> $variants
+	 * @param int                                            $experiment_id Experiment post ID.
+	 * @param array<int, array{label:string, post_id:int}>  $variants      Ordered variants list (max MAX_VARIANTS).
 	 */
 	public static function set_variants( int $experiment_id, array $variants ): void {
 		$clean = [];

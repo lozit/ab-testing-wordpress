@@ -132,7 +132,7 @@ final class HtmlImport {
 			<?php
 			printf(
 				/* translators: %s: full path to wp-content/uploads/abtest-templates/ */
-				esc_html__( 'Drop or edit HTML files in %s — every 5 minutes WP-Cron syncs changed files into pages with the Blank Canvas template. New folders create a page; edits to an existing %s update the matching page.', 'ab-testing-wordpress' ),
+				esc_html__( 'Drop or edit HTML files in %1$s — every 5 minutes WP-Cron syncs changed files into pages with the Blank Canvas template. New folders create a page; edits to an existing %2$s update the matching page.', 'ab-testing-wordpress' ),
 				'<code>' . esc_html( $watch_dir ) . '/{slug}/</code>',
 				'<code>index.html</code>'
 			);
@@ -258,11 +258,15 @@ final class HtmlImport {
 		// For .zip this catches a PHP file renamed to .zip (magic bytes don't lie) ;
 		// for .html / .htm the function falls back to extension-matching since HTML
 		// has no unique magic signature, so the allowlist still gates those.
-		$mime_check = wp_check_filetype_and_ext( $tmp_name, $name, [
-			'html' => 'text/html',
-			'htm'  => 'text/html',
-			'zip'  => 'application/zip',
-		] );
+		$mime_check = wp_check_filetype_and_ext(
+			$tmp_name,
+			$name,
+			[
+				'html' => 'text/html',
+				'htm'  => 'text/html',
+				'zip'  => 'application/zip',
+			]
+		);
 		if ( empty( $mime_check['ext'] ) || empty( $mime_check['type'] ) ) {
 			self::redirect_error(
 				sprintf(
@@ -333,7 +337,11 @@ final class HtmlImport {
 	 */
 	private static function create_new( string $title, string $html ) {
 		if ( '' === $title ) {
-			$title = sprintf( __( 'HTML import — %s', 'ab-testing-wordpress' ), current_time( 'Y-m-d H:i:s' ) );
+			$title = sprintf(
+				/* translators: %s: timestamp at upload time */
+				__( 'HTML import — %s', 'ab-testing-wordpress' ),
+				current_time( 'Y-m-d H:i:s' )
+			);
 		}
 		// wp_insert_post() runs wp_unslash() on inputs (it expects $_POST-style slashed data).
 		// Our raw file content has no slashes, so the unslash would strip real backslashes from
@@ -408,6 +416,7 @@ final class HtmlImport {
 		$index_html_path = '';
 		$index_html_relpath = '';
 
+		// phpcs:ignore WordPress.NamingConventions.ValidVariableName.UsedPropertyNotSnakeCase -- ZipArchive::numFiles is a PHP core property, camelCase by design
 		for ( $i = 0; $i < $zip->numFiles; $i++ ) {
 			$entry = $zip->getNameIndex( $i );
 			if ( false === $entry || '' === $entry ) {

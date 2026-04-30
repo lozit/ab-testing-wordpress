@@ -60,14 +60,14 @@ final class Router {
 		$bypass         = $this->should_bypass();
 		$has_underlying = $this->url_resolves_to_public_page( $path );
 		$preview        = $this->read_preview_param();
-		$labels         = Experiment::get_variant_labels( $experiment->ID ); // e.g. ['A'] (baseline) or ['A','B','C']
+		$labels         = Experiment::get_variant_labels( $experiment->ID ); // baseline = single label A, multi = A B C…
 		$has_variant_b  = in_array( 'B', $labels, true );
 
 		// Targeting check. Admin/bot bypass always passes — preview is independent of
 		// the previewer's device/country. For out-of-target visitors :
-		//   - if URL has an underlying public page, fall through to WP's normal render;
-		//   - otherwise (custom URL with no real page), serve the baseline variant A
-		//     SILENTLY: no cookie set, no impression logged, no tracker.js enqueued.
+		// - if URL has an underlying public page, fall through to WP's normal render;
+		// - otherwise (custom URL with no real page), serve the baseline variant A
+		// SILENTLY: no cookie set, no impression logged, no tracker.js enqueued.
 		// This way Adwords/Lemlist clicks from outside the target audience still see a
 		// real page (no 404), but they don't pollute the experiment's stats.
 		$out_of_target = ! $bypass && ! Targeting::matches( $experiment->ID );
@@ -264,6 +264,7 @@ final class Router {
 		return (string) apply_filters( 'abtest_request_path', $normalized );
 	}
 
+	// phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.FoundAfterLastUsed -- $post is part of the get_canonical_url filter signature
 	public function filter_canonical_url( $url, $post ) {
 		if ( null === $this->current_experiment || '' === $this->current_test_url ) {
 			return $url;
@@ -278,6 +279,7 @@ final class Router {
 		return home_url( $this->current_test_url );
 	}
 
+	// phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.FoundAfterLastUsed -- $requested_url is part of the redirect_canonical filter signature
 	public function maybe_block_canonical_redirect( $redirect_url, $requested_url ) {
 		if ( null !== $this->current_experiment ) {
 			return false;
@@ -363,7 +365,11 @@ final class Router {
 	}
 
 	/**
-	 * @param string $current_view Either 'A', 'B' or 'original' — what the admin is currently seeing.
+	 * @param \WP_Post $experiment      The matched experiment.
+	 * @param string   $path            Current normalized request path.
+	 * @param bool     $has_underlying  True when the URL also resolves to an existing public page.
+	 * @param bool     $has_variant_b   True when the experiment defines a variant B (multi-variant).
+	 * @param string   $current_view    Either 'A', 'B' or 'original' — what the admin is currently seeing.
 	 */
 	private function expose_admin_marker( \WP_Post $experiment, string $path, bool $has_underlying, bool $has_variant_b, string $current_view ): void {
 		$current_view = strtoupper( $current_view ) === 'ORIGINAL' ? 'original' : strtoupper( $current_view );
@@ -387,8 +393,8 @@ final class Router {
 				$bar->add_node(
 					[
 						'id'    => 'abtest-preview',
-						/* translators: 1: experiment title, 2: current variant label, 3: mode suffix */
 						'title' => sprintf(
+							/* translators: 1: experiment title, 2: current variant label, 3: mode suffix */
 							esc_html__( 'A/B: %1$s — viewing %2$s%3$s', 'ab-testing-wordpress' ),
 							esc_html( get_the_title( $experiment ) ),
 							esc_html( $current_label ),

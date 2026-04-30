@@ -148,7 +148,11 @@ final class CsvExport {
 			foreach ( array_slice( Experiment::VARIANT_LABELS, 1 ) as $label ) {
 				$cmp = $multi['comparisons'][ $label ] ?? null;
 				if ( null === $cmp ) {
-					$row[] = ''; $row[] = ''; $row[] = ''; $row[] = ''; $row[] = '';
+					$row[] = '';
+					$row[] = '';
+					$row[] = '';
+					$row[] = '';
+					$row[] = '';
 				} else {
 					$row[] = self::format_float( (float) $cmp['lift'] );
 					$row[] = self::format_float( (float) $cmp['p_value'] );
@@ -207,10 +211,11 @@ final class CsvExport {
 		[ $date_sql, $date_params ] = Stats::date_range_clause( $from, $to );
 		$params = array_merge( $ids, $date_params );
 
-		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared,WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching
+		// Same shape as Stats::raw_counts_for_experiments — $table is plugin-controlled,
+		// placeholders are integer-only, $date_sql whitelisted. Safe to interpolate.
+		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared,WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
 		$rows = $wpdb->get_results(
 			$wpdb->prepare(
-				// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 				"SELECT experiment_id, variant, event_type, COUNT(*) AS n
 				   FROM {$table}
 				  WHERE experiment_id IN ({$placeholders}) {$date_sql}
@@ -219,6 +224,7 @@ final class CsvExport {
 			),
 			ARRAY_A
 		);
+		// phpcs:enable
 
 		foreach ( $ids as $id ) {
 			$out[ $id ] = [

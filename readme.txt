@@ -4,7 +4,7 @@ Tags: ab testing, split testing, conversion, analytics
 Requires at least: 6.0
 Tested up to: 6.9
 Requires PHP: 8.1
-Stable tag: 0.9.2
+Stable tag: 0.9.3
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -108,6 +108,13 @@ No. Logged-in users with `edit_posts` capability are bypassed and always see the
 v1 only swaps the entire page (the variant must be a separate post). Block-level and product-level testing are on the roadmap.
 
 == Changelog ==
+
+= 0.9.3 =
+* PHPCS WordPress Coding Standards : repaid the 1083-finding cosmetic dette. The codebase is now fully WPCS-clean and the GitHub Actions `lint` job is BLOCKING (was `continue-on-error`). Any new code that violates the ruleset fails the build.
+* phpcs.xml.dist relaxed for modern PHP 8.1+ idioms : short array syntax `[]`, short ternary `?:`, alignment, and trivial-method docblocks no longer enforced. All Security / SQL / i18n / capability / nonce sniffs remain strict.
+* All `phpcs:ignore` annotations on the codebase carry a one-line justification (why the rule is suppressed at this site).
+* Bonus i18n fixes : added missing `translators:` comments on all `_n()` / `__()` calls with placeholders so the `.pot` file can guide translators.
+* Bonus naming fix : renamed `Autoload::load($class)` to `Autoload::load($class_name)` since `class` is a PHP reserved keyword as a parameter name.
 
 = 0.9.2 =
 * Security hardening sweep — all open findings from the v0.9.1 audit closed.

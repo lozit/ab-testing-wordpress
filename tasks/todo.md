@@ -130,4 +130,4 @@ Politique de divulgation : [`SECURITY.md`](../SECURITY.md). Score actuel : **8.5
 - [x] Activer GitHub **Dependabot Alerts + Updates** + **Private vulnerability reporting** dans Settings → Code security (fixed 2026-04-30, vérifié via API)
 
 **Dette technique restante (hors backlog auto-géré)** :
-- [ ] Rembourser dette PHPCS (1083 findings cosmétiques majoritairement short array syntax `[]`) pour pouvoir passer `composer run lint` en blocking dans CI. Aujourd'hui en `continue-on-error`. ~2-3 h via `composer run lint:fix` puis review manuelle des restants.
+- [x] **Dette PHPCS remboursée** (v0.9.3) — 1083 findings → 0. Auto-fix PHPCBF + ruleset assoupli sur cosmétique modern-PHP (short array, alignement, docblocks triviaux) + annotations `phpcs:ignore` justifiées sur ~30 faux positifs (table interpolation, file_get_contents locaux, hooks tiers comme WPML, params réservés aux signatures filter WP). Toutes les règles Security / SQL / i18n / capability / nonce restent strictes. CI `lint` job passé en **blocking** (était `continue-on-error`).

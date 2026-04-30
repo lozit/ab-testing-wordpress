@@ -100,13 +100,14 @@ final class Plugin {
 	private static function pre_install_truncate_visitor_hash(): void {
 		global $wpdb;
 		$table = Schema::events_table();
-		// phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared,WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching,WordPress.DB.DirectDatabaseQuery.SchemaChange
+		// $table from Schema::events_table() is plugin-controlled. Safe to interpolate.
+		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared,WordPress.DB.PreparedSQL.NotPrepared
 		$exists = $wpdb->get_var( "SHOW TABLES LIKE '{$table}'" );
 		if ( $exists !== $table ) {
 			return; // First install — no rows to truncate.
 		}
-		// phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared,WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching
 		$wpdb->query( $wpdb->prepare( "UPDATE {$table} SET visitor_hash = SUBSTRING(visitor_hash, 1, %d)", Cookie::HASH_LENGTH ) );
+		// phpcs:enable
 	}
 
 	/**

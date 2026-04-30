@@ -33,6 +33,7 @@ final class Watcher {
 	private const LAST_RUN_OPT  = 'abtest_watcher_last_run';
 
 	public static function register(): void {
+		// phpcs:ignore WordPress.WP.CronInterval.CronSchedulesInterval -- intentional 5-min interval registered in register_interval() for IDE-sync UX
 		add_filter( 'cron_schedules', [ self::class, 'register_interval' ] );
 		add_action( self::CRON_HOOK, [ self::class, 'scan' ] );
 

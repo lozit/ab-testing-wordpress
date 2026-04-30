@@ -52,10 +52,11 @@ final class Stats {
 		[ $where_extra, $params ] = self::date_range_clause( $from, $to );
 		$params = array_merge( [ $test_url ], $params );
 
-		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared,WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching
+		// $table comes from Schema::events_table() (plugin-controlled), $where_extra from
+		// our own date_range_clause() (whitelist of two SQL fragments). Safe to interpolate.
+		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared,WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
 		$rows = $wpdb->get_results(
 			$wpdb->prepare(
-				// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 				"SELECT DATE(created_at) AS day, experiment_id, variant, event_type, COUNT(*) AS n
 				   FROM {$table}
 				  WHERE test_url = %s {$where_extra}
@@ -65,6 +66,7 @@ final class Stats {
 			),
 			ARRAY_A
 		);
+		// phpcs:enable
 
 		if ( empty( $rows ) ) {
 			return [ 'days' => [], 'series' => [] ];
@@ -176,10 +178,12 @@ final class Stats {
 		[ $date_sql, $date_params ] = self::date_range_clause( $from, $to );
 		$params       = array_merge( $ids, $date_params );
 
-		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared,WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching
+		// $table comes from Schema::events_table() (plugin-controlled), $placeholders is a
+		// generated string of `%d,%d,…` keyed only on (int) IDs, $date_sql is from our own
+		// date_range_clause() (whitelist of two SQL fragments). Safe to interpolate.
+		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared,WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
 		$rows = $wpdb->get_results(
 			$wpdb->prepare(
-				// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 				"SELECT experiment_id, variant, event_type, COUNT(*) AS n
 				   FROM {$table}
 				  WHERE experiment_id IN ({$placeholders}) {$date_sql}
@@ -188,6 +192,7 @@ final class Stats {
 			),
 			ARRAY_A
 		);
+		// phpcs:enable
 
 		$out = [];
 		foreach ( $ids as $id ) {
@@ -229,8 +234,8 @@ final class Stats {
 	 * + a comparisons map keyed by the non-baseline label.
 	 *
 	 * @param array<string, array{impressions:int,conversions:int}> $counts Keyed by label (A/B/C/D).
-	 * @param string[] $labels Active labels for this experiment, in declaration order.
-	 *                         The first one is the baseline. Defaults to ['A','B'] for back-compat.
+	 * @param string[]                                              $labels Active labels for this experiment, in declaration order.
+	 *                                                                      The first one is the baseline. Defaults to ['A','B'] for back-compat.
 	 *
 	 * @return array{
 	 *     variants: array<string, array{impressions:int,conversions:int,rate:float}>,

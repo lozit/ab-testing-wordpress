@@ -39,6 +39,7 @@ final class Consent {
 		if ( empty( $settings['require_consent'] ) ) {
 			return false;
 		}
+		// phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.DynamicHooknameFound -- self::FILTER is a const = 'abtest_visitor_has_consent' (prefixed)
 		$consent = apply_filters( self::FILTER, null );
 		return true !== $consent;
 	}

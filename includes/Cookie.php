@@ -24,6 +24,7 @@ final class Cookie {
 	 * — useful when an experiment was reduced from 4 variants down to 2 mid-flight,
 	 * a returning visitor with an obsolete cookie should be re-assigned.
 	 *
+	 * @param int      $experiment_id  Experiment post ID.
 	 * @param string[] $allowed_labels Uppercase labels (e.g. ['A','B','C']). Empty = no constraint, accept A/B (legacy).
 	 */
 	public static function get_variant( int $experiment_id, array $allowed_labels = [] ): ?string {

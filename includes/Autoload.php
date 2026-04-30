@@ -17,13 +17,13 @@ final class Autoload {
 		spl_autoload_register( [ self::class, 'load' ] );
 	}
 
-	public static function load( string $class ): void {
+	public static function load( string $class_name ): void {
 		$prefix = 'Abtest\\';
-		if ( ! str_starts_with( $class, $prefix ) ) {
+		if ( ! str_starts_with( $class_name, $prefix ) ) {
 			return;
 		}
 
-		$relative = substr( $class, strlen( $prefix ) );
+		$relative = substr( $class_name, strlen( $prefix ) );
 		// Defensive : refuse any class name carrying `..` so a (hypothetical) caller
 		// passing user-controlled strings to `class_exists()` can't traverse out of
 		// `includes/`. PHP itself rejects `..` in class names but spl_autoload_register

@@ -1,6 +1,6 @@
 <?xml version="1.0"?>
 <ruleset name="AbTesting WordPress">
-    <description>WPCS ruleset for the AB Testing WordPress plugin.</description>
+    <description>WPCS ruleset for the AB Testing WordPress plugin — relaxed cosmetic rules, strict security.</description>
 
     <file>./ab-testing-wordpress.php</file>
     <file>./includes</file>
@@ -20,12 +20,97 @@
     <rule ref="WordPress">
         <!-- We use PSR-4 file naming, not class-foo.php -->
         <exclude name="WordPress.Files.FileName"/>
+
+        <!-- Modern PHP 8.1+ idioms : keep `[]`, short ternary, and don't enforce
+             the legacy `array()` long-form. WordPress core itself uses `[]` since
+             6.4. These rules fight modern code without any security benefit. -->
+        <exclude name="Universal.Arrays.DisallowShortArraySyntax"/>
+        <exclude name="Universal.Operators.DisallowShortTernary"/>
+
+        <!-- Cosmetic alignment rules — they fight git diffs and add no value.
+             We use `phpcs:disable` locally if a specific block needs forced layout. -->
+        <exclude name="Generic.Formatting.MultipleStatementAlignment"/>
+        <exclude name="WordPress.Arrays.MultipleStatementAlignment"/>
+        <exclude name="WordPress.Arrays.ArrayDeclarationSpacing.AssociativeArrayFound"/>
+        <exclude name="WordPress.Arrays.ArrayDeclarationSpacing.ArrayItemNoNewLine"/>
+        <exclude name="Universal.WhiteSpace.PrecisionAlignment"/>
+        <exclude name="Squiz.ControlStructures.ControlSignature.NewlineAfterOpenBrace"/>
+
+        <!-- Docblock requirements relaxed for trivial methods. We document the
+             non-obvious ones (with PHPDoc when type hints don't tell the full
+             story) ; we don't sprinkle `@param int $id` on a public method that
+             already declares `int $id` in its signature. -->
+        <exclude name="Squiz.Commenting.FunctionComment.Missing"/>
+        <exclude name="Squiz.Commenting.FunctionComment.MissingParamTag"/>
+        <exclude name="Squiz.Commenting.FunctionComment.MissingParamComment"/>
+        <exclude name="Squiz.Commenting.FunctionComment.ParamCommentFullStop"/>
+        <exclude name="Squiz.Commenting.ClassComment.Missing"/>
+        <exclude name="Squiz.Commenting.VariableComment.Missing"/>
+        <exclude name="Generic.Commenting.DocComment.MissingShort"/>
+        <exclude name="Squiz.Commenting.InlineComment.InvalidEndChar"/>
+        <exclude name="Squiz.Commenting.InlineComment.NoSpaceBefore"/>
+        <exclude name="Squiz.Commenting.InlineComment.SpacingAfter"/>
+        <exclude name="Squiz.Commenting.FileComment.Missing"/>
+        <exclude name="Squiz.Commenting.FileComment.MissingPackageTag"/>
+        <exclude name="Squiz.Commenting.FunctionComment.SpacingAfterParamType"/>
+        <exclude name="Squiz.Commenting.FunctionComment.SpacingAfterParamName"/>
     </rule>
 
     <rule ref="WordPress.WP.I18n">
         <properties>
-            <property name="text_domain" type="array" value="ab-testing-wordpress"/>
+            <property name="text_domain" type="array">
+                <element value="ab-testing-wordpress"/>
+            </property>
         </properties>
+    </rule>
+
+    <!-- Plugin owns custom tables (`wp_abtest_events`) and queries them directly via $wpdb.
+         The "use the WP API instead" sniffs don't apply — there is no WP API for our table. -->
+    <rule ref="WordPress.DB.DirectDatabaseQuery">
+        <severity>0</severity>
+    </rule>
+    <rule ref="WordPress.DB.SlowDBQuery">
+        <severity>0</severity>
+    </rule>
+
+    <!-- We use posts_per_page = -1 in migrations to process every experiment row.
+         It's bounded (~hundreds at most) and runs once per upgrade. -->
+    <rule ref="WordPress.WP.PostsPerPage">
+        <severity>0</severity>
+    </rule>
+
+    <!-- mt_rand() / mt_srand() for variant pick is intentional — speed > crypto-randomness
+         for a 50/50 A/B split. random_int() would be overkill and 100x slower. -->
+    <rule ref="WordPress.WP.AlternativeFunctions.rand_mt_rand">
+        <severity>0</severity>
+    </rule>
+    <rule ref="WordPress.WP.AlternativeFunctions.rand_seeding_mt_srand">
+        <severity>0</severity>
+    </rule>
+
+    <!-- File ops on plugin-controlled local paths (uploads/abtest-templates/ and the
+         tmp uploaded file) — WP_Filesystem is for sandboxed remote filesystems and
+         doesn't apply to direct local-disk reads of files we just verified ourselves. -->
+    <rule ref="WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents">
+        <severity>0</severity>
+    </rule>
+    <rule ref="WordPress.WP.AlternativeFunctions.file_system_operations_fopen">
+        <severity>0</severity>
+    </rule>
+    <rule ref="WordPress.WP.AlternativeFunctions.file_system_operations_fclose">
+        <severity>0</severity>
+    </rule>
+    <rule ref="WordPress.WP.AlternativeFunctions.file_system_operations_fwrite">
+        <severity>0</severity>
+    </rule>
+    <rule ref="WordPress.WP.AlternativeFunctions.file_system_operations_fread">
+        <severity>0</severity>
+    </rule>
+    <rule ref="WordPress.WP.AlternativeFunctions.file_system_operations_feof">
+        <severity>0</severity>
+    </rule>
+    <rule ref="WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents">
+        <severity>0</severity>
     </rule>
 
     <rule ref="WordPress.NamingConventions.PrefixAllGlobals">

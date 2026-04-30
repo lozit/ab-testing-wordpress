@@ -58,7 +58,8 @@ final class UrlScripts {
 	/**
 	 * Replace the full list of scripts for a URL. Empty list deletes the entry.
 	 *
-	 * @param array<int, array{position:string, code:string}> $scripts
+	 * @param string                                            $url     Test URL path.
+	 * @param array<int, array{position:string, code:string}>  $scripts List of script entries (position + raw code).
 	 */
 	public static function set( string $url, array $scripts ): void {
 		$url = Experiment::normalize_path( $url );

@@ -64,9 +64,9 @@ jobs:
   lint:
     name: WordPress Coding Standards (PHPCS)
     runs-on: ubuntu-latest
-    # PHPCS is informational for now — we surface violations without failing the build.
-    # Flip this to false once the codebase is fully WPCS-clean.
-    continue-on-error: true
+    # PHPCS is BLOCKING : the codebase is fully WPCS-clean as of v0.9.3 (relaxed
+    # cosmetic rules on modern PHP idioms but every Security/SQL/i18n category
+    # still strict). See phpcs.xml.dist for the rationale.
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -89,8 +89,8 @@ jobs:
       - name: Install composer dependencies
         run: composer install --prefer-dist --no-progress --no-interaction
 
-      - name: Run PHPCS (annotated)
-        run: ./vendor/bin/phpcs --standard=phpcs.xml.dist --report-full --report-checkstyle=/tmp/phpcs.xml || true
+      - name: Run PHPCS (annotated, blocking)
+        run: ./vendor/bin/phpcs --standard=phpcs.xml.dist --report-full --report-checkstyle=/tmp/phpcs.xml
 
       - name: Annotate PR with PHPCS findings
         if: always()
