@@ -114,14 +114,20 @@ Politique de divulgation : [`SECURITY.md`](../SECURITY.md). Score actuel : **8.5
 
 **Auto-règles** : la commande ajoute uniquement les Critical / High / Medium nouveaux. Les Low restent dans le rapport, pas ici. Les items qui disparaissent d'un audit suivant sont automatiquement cochés.
 
-**Findings ouverts (audit 2026-04-30, post-v0.9.1)** :
-- [ ] [MEDIUM] C — `includes/Admin/HtmlImport.php:240` — vérifier le MIME via `wp_check_filetype_and_ext()` (pas seulement l'extension du nom) (audit 2026-04-30)
-- [ ] [MEDIUM] F — `includes/Integrations/Webhook.php:73` — refuser les schemes non-HTTP(S) sur l'URL webhook (anti-SSRF basique) (audit 2026-04-30)
+**Findings ouverts** : ✅ aucun (tous fermés en v0.9.2).
 
-**Quick wins fixés en v0.9.1** :
-- [x] [MEDIUM] F — `includes/Integrations/Webhook.php:160` — `'sslverify' => true` explicite (fixed 2026-04-30, commit `5eff481`)
-- [x] [MEDIUM] C — `includes/Admin/HtmlImport.php:241` — message d'erreur corrigé pour mentionner `.zip` (fixed 2026-04-30, commit `5eff481`)
+**Tous les findings fermés en v0.9.1 → v0.9.2** :
+- [x] [MEDIUM] F — `includes/Integrations/Webhook.php:160` — `'sslverify' => true` explicite (fixed v0.9.1, commit `5eff481`)
+- [x] [MEDIUM] C — `includes/Admin/HtmlImport.php:241` — message d'erreur corrigé pour mentionner `.zip` (fixed v0.9.1, commit `5eff481`)
+- [x] [MEDIUM] C — `includes/Admin/HtmlImport.php:251` — vérification MIME via `wp_check_filetype_and_ext()` ajoutée (fixed v0.9.2)
+- [x] [MEDIUM] F — `includes/Integrations/Webhook.php:78` — schemes non-HTTP(S) refusés sur URL webhook (anti-SSRF) (fixed v0.9.2)
+- [x] [LOW] H — `includes/Autoload.php:27` — refuse `..` dans le nom de classe (fixed v0.9.2)
+- [x] [LOW] B — `includes/Rest/ConvertController.php:69` — rate-limit 60 hits/min/IP via transient + filtre `abtest_convert_rate_limit_per_min` (fixed v0.9.2)
+- [x] [LOW] G — `includes/Watcher.php:42, 49` — annotation `phpcs:ignore WordPress.WP.CronInterval` (fixed v0.9.2)
+- [x] [LOW] G — `includes/Watcher.php:122` + `includes/Admin/HtmlImport.php:289, 469, 485` — annotations `phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents` (fixed v0.9.2)
+- [x] [LOW] H — `.gitignore` étendu avec `.env`, `.env.*`, `wp-tests-config.php`, `*.local.php`, `*.key`, `*.pem`, `*.p12`, `secrets.json` (fixed v0.9.2)
+- [x] [LOW] E — Documentation du stockage en clair des secrets webhook dans `SECURITY.md` (out-of-scope) + README section Webhooks (fixed v0.9.2)
+- [x] Activer GitHub **Dependabot Alerts + Updates** + **Private vulnerability reporting** dans Settings → Code security (fixed 2026-04-30, vérifié via API)
 
-**Dette technique / hors backlog auto-géré** :
+**Dette technique restante (hors backlog auto-géré)** :
 - [ ] Rembourser dette PHPCS (1083 findings cosmétiques majoritairement short array syntax `[]`) pour pouvoir passer `composer run lint` en blocking dans CI. Aujourd'hui en `continue-on-error`. ~2-3 h via `composer run lint:fix` puis review manuelle des restants.
-- [ ] Activer GitHub **Dependabot Alerts + Updates** ET **Private vulnerability reporting** dans Settings → Code security du repo. Hors-code, ~30 s de clic.

@@ -254,6 +254,25 @@ final class HtmlImport {
 			self::redirect_error( __( 'Upload failed.', 'ab-testing-wordpress' ) );
 		}
 
+		// Real MIME check (finfo magic bytes) on top of the extension allowlist.
+		// For .zip this catches a PHP file renamed to .zip (magic bytes don't lie) ;
+		// for .html / .htm the function falls back to extension-matching since HTML
+		// has no unique magic signature, so the allowlist still gates those.
+		$mime_check = wp_check_filetype_and_ext( $tmp_name, $name, [
+			'html' => 'text/html',
+			'htm'  => 'text/html',
+			'zip'  => 'application/zip',
+		] );
+		if ( empty( $mime_check['ext'] ) || empty( $mime_check['type'] ) ) {
+			self::redirect_error(
+				sprintf(
+					/* translators: %s: rejected extension */
+					__( 'File MIME type does not match its .%s extension. Refused.', 'ab-testing-wordpress' ),
+					$ext
+				)
+			);
+		}
+
 		$target_id = isset( $_POST['target_page_id'] ) ? absint( wp_unslash( $_POST['target_page_id'] ) ) : 0;
 		$new_title = isset( $_POST['new_title'] ) ? sanitize_text_field( wp_unslash( $_POST['new_title'] ) ) : '';
 
@@ -267,6 +286,7 @@ final class HtmlImport {
 			}
 			$contents = $result; // string: the rewritten HTML
 		} else {
+			// phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents -- local upload tmp path, wp_remote_get does not apply
 			$contents = file_get_contents( $tmp_name );
 			if ( false === $contents ) {
 				self::redirect_error( __( 'Could not read uploaded file.', 'ab-testing-wordpress' ) );
@@ -447,6 +467,7 @@ final class HtmlImport {
 		}
 
 		// Read the index HTML, rewrite relative asset paths to absolute URLs.
+		// phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents -- local extracted file path, wp_remote_get does not apply
 		$html = file_get_contents( $index_html_path );
 		if ( false === $html ) {
 			return new \WP_Error( 'read_html', __( 'Could not read the index HTML file from the archive.', 'ab-testing-wordpress' ) );
@@ -463,6 +484,7 @@ final class HtmlImport {
 		// Also rewrite linked CSS files (image URLs inside `url(...)`). glob() with
 		// `**` is shell-only — walk recursively instead so nested CSS gets rewritten.
 		foreach ( self::find_files( $dest_dir, 'css' ) as $css_path ) {
+			// phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents -- local extracted CSS path, wp_remote_get does not apply
 			$css = file_get_contents( $css_path );
 			if ( false === $css ) {
 				continue;

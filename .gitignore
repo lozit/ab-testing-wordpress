@@ -26,3 +26,13 @@ package-lock.json
 Thumbs.db
 *.swp
 *.swo
+
+# Secrets — defense-in-depth (none of these files exist today, just preventive)
+.env
+.env.*
+wp-tests-config.php
+*.local.php
+*.key
+*.pem
+*.p12
+secrets.json

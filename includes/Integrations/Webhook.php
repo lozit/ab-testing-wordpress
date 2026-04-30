@@ -74,6 +74,12 @@ final class Webhook {
 			if ( '' === $url ) {
 				continue;
 			}
+			// Refuse non-HTTP(S) schemes. esc_url_raw() lets through gopher / ftp /
+			// webcal / xmpp / etc. Webhooks must POST JSON over HTTP — anything else
+			// is either a config mistake or an SSRF pivot from a compromised admin.
+			if ( ! preg_match( '#^https?://#i', $url ) ) {
+				continue;
+			}
 			$clean[] = [
 				'name'    => isset( $entry['name'] ) ? sanitize_text_field( (string) $entry['name'] ) : '',
 				'url'     => $url,

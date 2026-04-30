@@ -39,12 +39,14 @@ final class Watcher {
 		// Self-heal : schedule the event if it's missing (fresh install or
 		// admin purged WP-Cron).
 		if ( ! wp_next_scheduled( self::CRON_HOOK ) ) {
+			// phpcs:ignore WordPress.WP.CronInterval.ChangeDetected -- intentional 5-min interval for IDE-sync UX
 			wp_schedule_event( time() + 60, self::CRON_INTERVAL, self::CRON_HOOK );
 		}
 	}
 
 	public static function activate(): void {
 		if ( ! wp_next_scheduled( self::CRON_HOOK ) ) {
+			// phpcs:ignore WordPress.WP.CronInterval.ChangeDetected -- intentional 5-min interval for IDE-sync UX
 			wp_schedule_event( time() + 60, self::CRON_INTERVAL, self::CRON_HOOK );
 		}
 	}
@@ -117,6 +119,7 @@ final class Watcher {
 				continue;
 			}
 
+			// phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents -- local file path, wp_remote_get does not apply
 			$html = file_get_contents( $index );
 			if ( false === $html ) {
 				$stats['errors'][] = sprintf( 'read failed: %s', $slug );

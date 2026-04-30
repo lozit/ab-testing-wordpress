@@ -4,7 +4,7 @@ Tags: ab testing, split testing, conversion, analytics
 Requires at least: 6.0
 Tested up to: 6.9
 Requires PHP: 8.1
-Stable tag: 0.9.1
+Stable tag: 0.9.2
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -108,6 +108,15 @@ No. Logged-in users with `edit_posts` capability are bypassed and always see the
 v1 only swaps the entire page (the variant must be a separate post). Block-level and product-level testing are on the roadmap.
 
 == Changelog ==
+
+= 0.9.2 =
+* Security hardening sweep — all open findings from the v0.9.1 audit closed.
+* HTML upload now performs a real MIME check (`wp_check_filetype_and_ext()`) on top of the extension allowlist — for `.zip` this catches a PHP file disguised as a zip via magic-byte mismatch.
+* Webhook URLs are now refused if they don't start with `http://` or `https://` (anti-SSRF basic — blocks `gopher://`, `ftp://`, `webcal://`, etc. that `esc_url_raw()` would otherwise accept).
+* Public REST endpoint `/abtest/v1/convert` now rate-limits each visitor IP to 60 conversions per minute (filterable via `abtest_convert_rate_limit_per_min`). Returns HTTP 429 when exceeded. Prevents distributed flood from biasing experiment statistics.
+* PSR-4 autoloader rejects class names containing `..` defensively (anti-traversal hardening).
+* `.gitignore` extended with `.env`, `.env.*`, `wp-tests-config.php`, `*.local.php`, `*.key`, `*.pem`, `*.p12`, `secrets.json` (preventive — none of these files exist today).
+* PHPCS false-positive annotations added on `file_get_contents()` calls reading local files (4 spots) and on the intentional 5-minute Watcher cron interval.
 
 = 0.9.1 =
 * Security hardening (post-audit): outbound webhook POSTs now pass `'sslverify' => true` explicitly so a third-party `http_request_args` filter can't silently downgrade SSL verification. Aligns with the explicit setting already in the GA4 integration.

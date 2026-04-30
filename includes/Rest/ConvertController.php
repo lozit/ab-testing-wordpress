@@ -50,6 +50,14 @@ final class ConvertController {
 		);
 	}
 
+	/**
+	 * Per-IP rate limit on the public `/convert` endpoint. Visitor-hash dedup
+	 * already prevents the same browser from inflating its own count, but a
+	 * distributed flood from N IPs could still bias stats. Cap each IP to 60
+	 * conversions per minute. Filterable for sites with legitimate burst needs.
+	 */
+	private const RATE_LIMIT_PER_MIN = 60;
+
 	public function handle( \WP_REST_Request $request ): \WP_REST_Response {
 		$experiment_id = (int) $request->get_param( 'experiment_id' );
 
@@ -60,6 +68,10 @@ final class ConvertController {
 		}
 		if ( Experiment::STATUS_RUNNING !== Experiment::get_status( $experiment_id ) ) {
 			return new \WP_REST_Response( [ 'logged' => false, 'reason' => 'not_running' ], 409 );
+		}
+
+		if ( $this->is_rate_limited() ) {
+			return new \WP_REST_Response( [ 'logged' => false, 'reason' => 'rate_limited' ], 429 );
 		}
 
 		// Variant comes from the cookie set during impression — never trusted from the client.
@@ -78,5 +90,25 @@ final class ConvertController {
 			],
 			$logged ? 201 : 200
 		);
+	}
+
+	/**
+	 * Transient-backed sliding bucket : 60 conversions / minute / IP. Returns true
+	 * (= block this hit) once the bucket is full. The IP itself is hashed with
+	 * wp_salt so we never store a raw address in the transient key.
+	 */
+	private function is_rate_limited(): bool {
+		// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotValidated
+		$ip  = isset( $_SERVER['REMOTE_ADDR'] ) ? (string) wp_unslash( $_SERVER['REMOTE_ADDR'] ) : '';
+		$key = 'abtest_convert_rl_' . substr( wp_hash( $ip, 'auth' ), 0, 16 );
+
+		$count = (int) get_transient( $key );
+		$limit = (int) apply_filters( 'abtest_convert_rate_limit_per_min', self::RATE_LIMIT_PER_MIN );
+
+		if ( $count >= $limit ) {
+			return true;
+		}
+		set_transient( $key, $count + 1, MINUTE_IN_SECONDS );
+		return false;
 	}
 }

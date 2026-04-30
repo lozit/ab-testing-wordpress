@@ -57,3 +57,4 @@ Out of scope :
 - Vulnerabilities in WordPress core, PHP, or third-party plugins/themes installed alongside.
 - Issues requiring physical access or compromised admin credentials (unless privilege escalation beyond admin is demonstrated).
 - Findings that require a non-default configuration explicitly disabled in the plugin's defaults.
+- Webhook secrets and GA4 API keys stored in the WordPress options table in plain text — this matches WordPress's standard storage model for plugin configuration. Any user with `manage_options` can read them via the WordPress dashboard or the REST API. Treat them like any other admin-accessible secret.

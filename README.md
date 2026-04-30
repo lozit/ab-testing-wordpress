@@ -1,7 +1,7 @@
 # A/B Testing for WordPress
 
 [![CI](https://github.com/lozit/ab-testing-wordpress/actions/workflows/ci.yml/badge.svg)](https://github.com/lozit/ab-testing-wordpress/actions/workflows/ci.yml)
-[![Security Audit](https://img.shields.io/badge/security%20audit-8.5%2F10-green)](./docs/security/latest.md)
+[![Security Audit](https://img.shields.io/badge/security%20audit-9.5%2F10-brightgreen)](./docs/security/latest.md)
 [![License: GPL v2+](https://img.shields.io/badge/License-GPL%20v2%2B-blue.svg)](./LICENSE)
 [![PHP 8.1+](https://img.shields.io/badge/PHP-8.1%2B-777BB4.svg)](#)
 [![WordPress 6.0+](https://img.shields.io/badge/WordPress-6.0%2B-21759B.svg)](#)
@@ -253,7 +253,7 @@ Configure in **A/B Tests → Settings → Webhooks**. Each webhook has:
 
 - **Name** (label)
 - **URL** (where to POST)
-- **Secret** (optional — when set, requests include `X-Abtest-Signature: sha256=<HMAC>` for endpoint authentication)
+- **Secret** (optional — when set, requests include `X-Abtest-Signature: sha256=<HMAC>` for endpoint authentication ; **stored in plain text in `wp_options`** like every WordPress plugin setting — accessible to any `manage_options` user, treat accordingly)
 - **Fire on** : *all events* or *conversions only* (low volume)
 - **Send test event** button — POSTs a synthetic payload to verify the connection
 

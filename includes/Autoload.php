@@ -24,7 +24,14 @@ final class Autoload {
 		}
 
 		$relative = substr( $class, strlen( $prefix ) );
-		$path     = ABTEST_PLUGIN_DIR . 'includes/' . str_replace( '\\', '/', $relative ) . '.php';
+		// Defensive : refuse any class name carrying `..` so a (hypothetical) caller
+		// passing user-controlled strings to `class_exists()` can't traverse out of
+		// `includes/`. PHP itself rejects `..` in class names but spl_autoload_register
+		// receives the raw lookup string.
+		if ( str_contains( $relative, '..' ) ) {
+			return;
+		}
+		$path = ABTEST_PLUGIN_DIR . 'includes/' . str_replace( '\\', '/', $relative ) . '.php';
 
 		if ( is_readable( $path ) ) {
 			require_once $path;
