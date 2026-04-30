@@ -40,6 +40,25 @@ jobs:
           fi
           echo "Plugin header version matches: $HEADER_VERSION ✓"
 
+      - name: Sanity check — security audit report mentions this version
+        # Forces every release to either re-run /security-audit (regenerating
+        # docs/security/latest.md) or to add an explicit "no security delta from
+        # vX.Y.Z" note. Stops the release if the security trail is stale.
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          if [ ! -f docs/security/latest.md ]; then
+            echo "::error::docs/security/latest.md is missing. Run /security-audit before tagging."
+            exit 1
+          fi
+          if ! grep -qE "v${VERSION}([^0-9]|$)" docs/security/latest.md; then
+            echo "::error::docs/security/latest.md does not mention v${VERSION}."
+            echo "Either re-run /security-audit (recommended) or add a one-line"
+            echo "'No security delta vs v<previous>' note to docs/security/latest.md"
+            echo "and the matching docs/security/audit-YYYY-MM-DD-v${VERSION}.md archive."
+            exit 1
+          fi
+          echo "Security audit report mentions v${VERSION} ✓"
+
       - name: Build distribution folder
         run: |
           mkdir -p build/ab-testing-wordpress
