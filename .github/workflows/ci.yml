@@ -52,6 +52,15 @@ jobs:
       - name: Run PHPUnit
         run: composer run test
 
+      # Surface CVE advisories on composer dependencies. Non-blocking : `composer audit`
+      # exits non-zero on any advisory (including dev-deps that don't ship), and we
+      # don't want a transitive low-severity CVE to block all releases. The output
+      # stays visible in the run logs ; Dependabot (when enabled) is the continuous
+      # signal. See SECURITY.md.
+      - name: composer audit (CVE check, informational)
+        if: matrix.php == '8.1'
+        run: composer audit || true
+
   lint:
     name: WordPress Coding Standards (PHPCS)
     runs-on: ubuntu-latest

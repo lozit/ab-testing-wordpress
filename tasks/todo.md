@@ -107,18 +107,21 @@
 - [x] **URL match avec query string** (`?campaign=fb`) — sémantique subset (les params du `test_url` doivent tous être présents dans la requête, mais celle-ci peut en avoir d'autres comme `utm_*`), normalisation par `ksort` pour canonisation
 - [x] **URLs unicode dans `test_url`** — `rawurldecode` + `mb_strtolower`, regex `\p{Ll}\p{N}`, attribut HTML `pattern=` retiré du form
 
-### Sécurité — audit v0.9.0 (verdict: 0 Critical / 0 High / 3 Medium / 5 Low)
-Audit complet via `/security-audit` après v0.9.0. 9 surfaces inspectées (handlers admin_post, REST, file upload zip, SQL, cookies+hash, outbound HTTP, cron+filesystem, bootstrap, consent gate). Aucun blocker.
+### Sécurité — backlog audit (auto-géré)
 
-**Quick wins shippés en v0.9.1** :
-- [x] **Webhook outbound : `sslverify => true` explicite** (`includes/Integrations/Webhook.php:160`) — empêche un filtre `http_request_args` tiers de désactiver silencieusement la vérif SSL.
-- [x] **Message d'erreur upload corrigé** (`includes/Admin/HtmlImport.php:241`) — disait "Only .html and .htm files are accepted" alors que `.zip` est accepté depuis v0.7.0. Maintenant : liste générée depuis `ALLOWED_EXTS` + l'extension reçue.
+Géré par `/security-audit`. Dernier rapport : [`docs/security/latest.md`](../docs/security/latest.md).
+Politique de divulgation : [`SECURITY.md`](../SECURITY.md). Score actuel : **8.5 / 10**.
 
-**À traiter plus tard (Medium / Low) — pas urgent, laissés en backlog** :
-- [ ] **Rate-limit sur REST `/abtest/v1/convert`** (Medium) — endpoint public, dédup par `visitor_hash` empêche le double-count mais flood multi-IP peut biaiser les stats. Bucket transient par IP (60 hits / 60s) recommandé. ~30 LOC.
-- [ ] **Anti-SSRF sur URL des webhooks** (Low) — `esc_url_raw()` accepte `gopher://`, `ftp://`, etc. Ajouter `if (!preg_match('#^https?://#i', $url)) continue;` dans `Webhook::set_all()`. Threat model accepte la confiance admin mais hardening défensif facile.
-- [ ] **Doc dans README "secret HMAC stocké en clair dans `wp_options`"** (Low) — c'est le modèle WP standard mais à documenter explicitement pour les admins paranoïaques.
-- [ ] **Annotations `phpcs:ignore` sur `file_get_contents()` locaux** (Low) — Watcher.php:120, Plugin.php:443/459, etc. Faux positifs de PHPCS qui suggère `wp_remote_get` pour des paths disque.
-- [ ] **Annotation `phpcs:ignore WordPress.WP.CronInterval` sur `Watcher::CRON_INTERVAL`** (Low) — 5 min < 15 min seuil PHPCS, intentionnel (sync IDE rapide).
-- [ ] **Hardening `.gitignore`** (Low) — ajouter `.env`, `.env.*`, `wp-tests-config.php`, `*.local.php`, `*.key`, `*.pem`. Aucun de ces fichiers n'existe aujourd'hui, filet préventif.
-- [ ] **Activer GitHub Dependabot Alerts + Updates** (Low, hors-code) — Settings → Code security. Gratuit, signal CVE continu.
+**Auto-règles** : la commande ajoute uniquement les Critical / High / Medium nouveaux. Les Low restent dans le rapport, pas ici. Les items qui disparaissent d'un audit suivant sont automatiquement cochés.
+
+**Findings ouverts (audit 2026-04-30, post-v0.9.1)** :
+- [ ] [MEDIUM] C — `includes/Admin/HtmlImport.php:240` — vérifier le MIME via `wp_check_filetype_and_ext()` (pas seulement l'extension du nom) (audit 2026-04-30)
+- [ ] [MEDIUM] F — `includes/Integrations/Webhook.php:73` — refuser les schemes non-HTTP(S) sur l'URL webhook (anti-SSRF basique) (audit 2026-04-30)
+
+**Quick wins fixés en v0.9.1** :
+- [x] [MEDIUM] F — `includes/Integrations/Webhook.php:160` — `'sslverify' => true` explicite (fixed 2026-04-30, commit `5eff481`)
+- [x] [MEDIUM] C — `includes/Admin/HtmlImport.php:241` — message d'erreur corrigé pour mentionner `.zip` (fixed 2026-04-30, commit `5eff481`)
+
+**Dette technique / hors backlog auto-géré** :
+- [ ] Rembourser dette PHPCS (1083 findings cosmétiques majoritairement short array syntax `[]`) pour pouvoir passer `composer run lint` en blocking dans CI. Aujourd'hui en `continue-on-error`. ~2-3 h via `composer run lint:fix` puis review manuelle des restants.
+- [ ] Activer GitHub **Dependabot Alerts + Updates** ET **Private vulnerability reporting** dans Settings → Code security du repo. Hors-code, ~30 s de clic.

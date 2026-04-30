@@ -51,6 +51,8 @@ jobs:
             --exclude='vendor' \
             --exclude='tests' \
             --exclude='tasks' \
+            --exclude='docs' \
+            --exclude='SECURITY.md' \
             --exclude='build' \
             --exclude='dist' \
             --exclude='*.lock' \

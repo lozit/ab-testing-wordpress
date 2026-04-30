@@ -1,6 +1,7 @@
 # A/B Testing for WordPress
 
 [![CI](https://github.com/lozit/ab-testing-wordpress/actions/workflows/ci.yml/badge.svg)](https://github.com/lozit/ab-testing-wordpress/actions/workflows/ci.yml)
+[![Security Audit](https://img.shields.io/badge/security%20audit-8.5%2F10-green)](./docs/security/latest.md)
 [![License: GPL v2+](https://img.shields.io/badge/License-GPL%20v2%2B-blue.svg)](./LICENSE)
 [![PHP 8.1+](https://img.shields.io/badge/PHP-8.1%2B-777BB4.svg)](#)
 [![WordPress 6.0+](https://img.shields.io/badge/WordPress-6.0%2B-21759B.svg)](#)
@@ -171,6 +172,22 @@ add_filter( 'abtest_visitor_has_consent', function () {
 ```
 
 Filter return convention: `true` → track, `false` → block, `null` → unknown / no banner wired → block (safe default when "Require consent" is on).
+
+---
+
+## Security
+
+Security is verified at three points :
+
+1. **On every push** — GitHub Actions runs `composer audit` (CVE on dependencies), `composer run lint` (PHPCS WordPress standard), and the unit + integration test suite.
+2. **Before every release tag** — full manual review using the `/security-audit` slash command (situated checklist over 9 plugin-specific surfaces + OWASP grid). Reports are persisted in [`docs/security/`](./docs/security/).
+3. **Continuously** — GitHub Dependabot alerts (when enabled in repo Settings → Code security).
+
+**Latest audit** : [`docs/security/latest.md`](./docs/security/latest.md)
+**Disclosure policy** : see [`SECURITY.md`](./SECURITY.md)
+**Audit methodology** : [`.claude/commands/security-audit.md`](./.claude/commands/security-audit.md)
+
+To report a vulnerability : use GitHub's **Private vulnerability reporting** at https://github.com/lozit/ab-testing-wordpress/security/advisories — please do not open a public issue.
 
 ---
 

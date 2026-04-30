@@ -1,10 +1,13 @@
 ---
-description: Audit sécurité ciblé du plugin (handlers admin, REST, file upload, cookies, outbound HTTP, cron)
+description: Audit sécurité complet — situé (surfaces du plugin) + grille OWASP + rapport persisté + todo auto-mis-à-jour
 ---
 
 Lance un audit de sécurité complet et **spécifique à ce plugin**. À déclencher avant un tag de release, après une feature qui touche DB / REST / upload, après un merge de PR sensible, ou en routine périodique.
 
-L'audit produit un rapport priorisé (Critical / High / Medium / Low) avec citations `file:line` — pas un essai littéraire.
+L'audit produit :
+- un **rapport persisté** dans `docs/security/audit-YYYY-MM-DD-vX.Y.Z.md` (archive) + `docs/security/latest.md` (overwrite),
+- une **mise à jour automatique** de `tasks/todo.md` (section "Sécurité — backlog audit"),
+- un **résumé chat** avec score 1-10, verdict Go/No-Go, et top 3 urgences.
 
 ---
 
@@ -15,7 +18,7 @@ Lancer dans cet ordre. Si l'un échoue, fixer avant de passer à l'audit manuel 
 - `composer run lint` — PHPCS ruleset WordPress.
 - `composer run test` puis `composer run test:integration` — couvrent les régressions sur consent gate, dedup, state machine, batch stats.
 - `composer audit` — CVE sur dépendances composer.
-- `gh api repos/lozit/ab-testing-wordpress/dependabot/alerts --jq '.[] | {state, severity, package: .security_advisory.summary}'` — alertes Dependabot ouvertes (ignore les "fixed" / "dismissed").
+- `gh api repos/lozit/ab-testing-wordpress/dependabot/alerts --jq '.[] | select(.state == "open") | {state, severity, package: .security_advisory.summary}'` — alertes Dependabot ouvertes (ignore les "fixed" / "dismissed"). Ignorer si Dependabot est désactivé sur le repo.
 
 Si tout passe : continuer. Si quelque chose casse : reporter d'abord les findings outils dans le rapport, fixer, relancer, puis passer à l'étape suivante.
 
@@ -31,7 +34,7 @@ Charger et appliquer (ne pas dupliquer) :
 
 ---
 
-## Étape 2 — checklist par surface d'attaque
+## Étape 2 — checklist par surface du plugin (situé)
 
 Pour chaque surface : inspecter les fichiers listés, vérifier chaque point, citer la ligne dans le rapport.
 
@@ -55,6 +58,7 @@ Fichiers : `includes/Rest/ConvertController.php`, `includes/Rest/StatsController
 Fichier : `includes/Admin/HtmlImport.php`.
 
 - Allowlist d'extensions (`.html` / `.htm` / `.zip`) appliquée AVANT lecture ?
+- Vérification MIME via `wp_check_filetype_and_ext()` (pas seulement l'extension du nom) ?
 - `is_uploaded_file()` vérifié sur le tmp_name ?
 - Taille bornée par `max_bytes()` ET capée par `wp_max_upload_size()` ?
 - Extraction zip : `../`, paths absolus, dotfiles, `__MACOSX/` rejetés ?
@@ -83,7 +87,7 @@ Fichier : `includes/Cookie.php`.
 Fichiers : `includes/Integrations/Webhook.php`, `includes/Integrations/Ga4.php`.
 
 - `wp_remote_post()` avec `timeout` raisonnable (5-10 s) — ne pas bloquer la page user ?
-- SSL verify ON par défaut (rechercher `'sslverify' => false` → red flag) ?
+- `'sslverify' => true` explicite (pas confiance au défaut WP — un filtre tiers peut le désactiver) ?
 - Secrets (API key GA4, secret HMAC webhook) jamais loggés via `error_log` / `WP_DEBUG_LOG` / réponses REST ?
 - URLs webhook user-supplied validées avec `esc_url_raw()` + check de protocole `http(s)://` (anti-SSRF basique : refus `file://`, `gopher://`, IP privées si on veut être paranoïaque) ?
 - Méthode `Webhook::send()` est `blocking=false` par défaut (sauf "Send test event") pour ne pas figer le hit ?
@@ -112,26 +116,103 @@ Fichiers : `includes/Consent.php`, `includes/Router.php` (autour du `should_bypa
 
 ---
 
-## Étape 3 — secrets dans le repo
+## Étape 2bis — grille OWASP (transverse)
 
-- `git ls-files | xargs grep -lEn '(API_KEY|SECRET|PASSWORD|TOKEN)\s*=' 2>/dev/null` — inspecter chaque hit (les vrais usages doivent venir de `get_option()`, jamais hardcodés).
-- Vérifier que `.env`, `wp-tests-config.php` (s'il contient des creds), et fichiers `*.local.php` sont bien dans `.gitignore`.
+Compléter l'inspection situé par une passe attaquant-orientée. Pour chaque catégorie, grep + lecture, puis classer chaque finding réel selon la sévérité standard ci-dessous.
+
+### 🔴 Critical
+- **SQL Injections** : `$wpdb->query` / `get_results` / `get_row` / `get_var` contenant une variable sans `prepare()`, ou `prepare()` avec `%s` autour d'un int.
+- **Dynamic File Inclusion** : `include` / `require` avec une variable issue de `$_GET` / `$_POST` / `$_SERVER`. Vérifier aussi que les autoloaders refusent `..` dans les noms de classe.
+- **Arbitrary Code Execution** : `eval`, `system`, `exec`, `shell_exec`, `passthru`, `popen`, `proc_open`, `assert`, `call_user_func($_GET[...])`.
+- **Secrets en clair commitées** : `git ls-files | xargs grep -lEn '(API_KEY|SECRET|PASSWORD|TOKEN|PRIVATE_KEY|sk_|pk_|AIza|AKIA)\s*='`. Patterns clés vendor (Stripe, AWS, Google, Slack).
+
+### 🟠 High
+- **XSS** : tout `echo` / `print` / `_e` / `printf` avec une variable non échappée selon le contexte (`esc_html`, `esc_attr`, `esc_url`, `esc_js`, `wp_kses_post`).
+- **CSRF** : forms sans `wp_nonce_field()` + `check_admin_referer()` ; AJAX sans `wp_verify_nonce()` ; actions état-modifiantes via GET sans nonce.
+- **Access Control** : menus admin sans `current_user_can()` ; `wp_ajax_nopriv_*` qui exécute du sensible ; REST sans `permission_callback` ou avec `__return_true` sur action sensitive ; fichier PHP sans `defined('ABSPATH') || exit;`.
+
+### 🟡 Medium
+- **Input Sanitization** : `$_GET` / `$_POST` écrits en DB sans `sanitize_text_field` / `sanitize_email` / `absint` / `esc_url_raw` / `wp_kses_post` ; `update_option` / `update_post_meta` sans sanitize.
+- **File Uploads** : pas de vérification MIME réelle (`wp_check_filetype_and_ext`), destination publique sans `.htaccess` PHP-block, taille non bornée.
+- **Sensitive Information Disclosure** : messages d'erreur qui leak chemins / SQL / version PHP, fichiers `debug.log` dans le plugin, secrets dans réponses REST.
+- **Headers / Configuration** : pas de `defined('ABSPATH') || exit;` (déjà dans High mais à recroiser), absence de headers no-store sur pages cachables.
+
+### 🔵 Low
+- Nonces avec scope trop large ou TTL trop long, queries SQL sans `LIMIT` qui peuvent renvoyer 100k rows, absence de rate-limit sur endpoints publics, transients qui stockent du PII.
+
+---
+
+## Étape 3 — secrets + git hygiène
+
+- `git ls-files | xargs grep -lEn '(API_KEY|SECRET|PASSWORD|TOKEN|PRIVATE_KEY)\s*=' 2>/dev/null` — inspecter chaque hit (les vrais usages doivent venir de `get_option()`, jamais hardcodés).
+- Vérifier que `.env`, `wp-tests-config.php` (s'il contient des creds), `*.local.php`, `*.key`, `*.pem` sont bien dans `.gitignore`.
 - `git log --oneline -p -- composer.json composer.lock | head -200` — pas de leak accidentel récent dans la lockfile.
 
 ---
 
-## Étape 4 — format du rapport final
+## Étape 4 — composer le rapport
 
-Table markdown avec colonnes : `Sévérité | Surface | Fichier:ligne | Constat | Action recommandée`.
+Format de chaque finding (issu de la grille OWASP) :
 
-Échelle de sévérité :
+```markdown
+**[SEVERITY] Issue Title**
+- File: `relative/path/to/file.php`
+- Line: NN
+- Surface: <A-I lettre + nom>
+- Problematic code: `[code excerpt 1-3 lignes]`
+- Risk: [description concrète du risque]
+- Fix: [corrected code ou approche recommandée]
+```
 
-- **Critical** — SQLi exploitable, RCE, escalation de privilèges, secret en clair commité dans git.
-- **High** — XSS stockée, CSRF sans nonce sur action état-modifiante, path traversal sur upload, leak de PII.
-- **Medium** — input non sanitizé sans impact direct exploitable, cookie sans flag, timeout HTTP infini, secret loggé en debug.
-- **Low** — code mort sensible, message d'erreur trop verbeux, doc privacy manquante, hash faible (MD5) pour usage non crypto.
+Conclure par :
+1. **Compteur par sévérité** (table 4 lignes)
+2. **Top 3 urgences** à fixer en premier
+3. **Score global 1-10** (10 = irréprochable, 8+ = production-ready, < 5 = ne pas releaser)
+4. **Verdict** : Go release / Don't release until fix (basé sur présence de Critical ou High)
 
-Conclure par : nombre de findings par sévérité, et un verdict "Go release / Don't release until fix" basé sur la présence de Critical ou High.
+---
+
+## Étape 5 — persister le rapport sur disque
+
+Récupérer la version courante :
+```bash
+grep "ABTEST_VERSION" ab-testing-wordpress.php | grep -oE "[0-9]+\.[0-9]+\.[0-9]+"
+```
+
+Écrire le rapport dans **DEUX** fichiers :
+
+1. `docs/security/audit-YYYY-MM-DD-vX.Y.Z.md` — archive immutable. Si le fichier existe déjà (audit le même jour sur la même version), suffixer `-2`, `-3`, etc.
+2. `docs/security/latest.md` — copie identique, overwrite. C'est ce fichier qui est linké depuis `README.md` et `SECURITY.md`.
+
+Créer le dossier `docs/security/` s'il n'existe pas. Le dossier est exclu du `.zip` distribué via `--exclude='docs'` dans `release.yml`.
+
+---
+
+## Étape 6 — synchroniser `tasks/todo.md`
+
+Localiser (ou créer si absente) la section `### Sécurité — backlog audit (auto-géré)` dans `tasks/todo.md`.
+
+Pour chaque finding **Critical / High / Medium** du nouveau rapport :
+- S'il n'existe pas déjà dans la section (matcher par `file:line` + sévérité) → ajouter au format :
+  ```
+  - [ ] [SÉV] Surface — `file.php:NN` — action recommandée (audit YYYY-MM-DD)
+  ```
+- S'il existe déjà → ne rien faire (pas de duplication).
+
+Pour chaque item **non-coché** déjà présent qui n'apparaît PLUS dans le nouveau rapport (= fixé entre 2 audits) → cocher `[x]` et ajouter `(fixed YYYY-MM-DD)`.
+
+Les findings **Low** restent dans le rapport mais **ne polluent pas** `tasks/todo.md`.
+
+---
+
+## Étape 7 — résumé chat
+
+Imprimer en sortie :
+- Score global X/10 + verdict Go/No-Go.
+- Compteur par sévérité.
+- Top 3 urgences avec leur file:line.
+- Lien vers le rapport persisté (`docs/security/latest.md`).
+- Diff du `tasks/todo.md` (combien de items ajoutés, combien cochés comme fixés).
 
 ---
 

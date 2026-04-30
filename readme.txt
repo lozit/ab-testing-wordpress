@@ -16,6 +16,8 @@ Run A/B tests by pointing the plugin at two existing pages — one as the contro
 
 Tracking is fully internal: impressions and conversions land in a custom database table, and the wp-admin dashboard shows conversion rates, lift, and a basic statistical significance indicator (two-proportion z-test).
 
+Security-audited internally before every release (situated checklist + OWASP grid). See SECURITY.md on GitHub for the disclosure policy and the latest audit report (`docs/security/latest.md`).
+
 = Features =
 * Page-level A/B tests (entire page as variant — no Gutenberg surgery needed)
 * Persistent cookie split (httponly, samesite=Lax)
