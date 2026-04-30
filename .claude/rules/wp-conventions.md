@@ -1,41 +1,42 @@
-# Conventions WordPress du plugin
+# Plugin's WordPress conventions
 
-S'applique à : tout fichier `.php` du plugin.
+Applies to: every `.php` file in the plugin.
 
-## Préfixes (anti-collision globale)
-- Fonctions globales : `abtest_xxx()`
-- Constantes : `ABTEST_XXX`
-- Options : `abtest_xxx`
-- Meta keys : `_abtest_xxx` (underscore prefix = caché de l'UI custom-fields)
-- Hooks custom : `abtest_xxx` (action) / `abtest_filter_xxx` (filter)
-- CSS/JS handles : `abtest-xxx`
-- Tables : `{$wpdb->prefix}abtest_xxx`
-- Cookies : `abtest_xxx`
-- Text domain : `ab-testing-wordpress` (= slug plugin)
+## Prefixes (anti-collision in the global namespace)
+- Global functions: `abtest_xxx()`
+- Constants: `ABTEST_XXX`
+- Options: `abtest_xxx`
+- Meta keys: `_abtest_xxx` (underscore prefix = hidden from the custom-fields UI)
+- Custom hooks: `abtest_xxx` (action) / `abtest_filter_xxx` (filter)
+- CSS / JS handles: `abtest-xxx`
+- Tables: `{$wpdb->prefix}abtest_xxx`
+- Cookies: `abtest_xxx`
+- Text domain: `ab-testing-wordpress` (= plugin slug)
 
 ## PSR-4 namespace
-Namespace racine : `Abtest\` → mappé sur `includes/`.
-Sous-namespaces : `Abtest\Admin\`, `Abtest\Rest\`, `Abtest\Stats\`.
-Nom de classe = nom de fichier (ex : `Abtest\Router` → `includes/Router.php`).
-> Note : on quitte la convention legacy `class-xxx.php` au profit de PSR-4 propre.
+Root namespace: `Abtest\` → mapped to `includes/`.
+Sub-namespaces: `Abtest\Admin\`, `Abtest\Rest\`, `Abtest\Stats\`.
+Class name = file name (e.g. `Abtest\Router` → `includes/Router.php`).
+> Note: we drop the legacy `class-xxx.php` convention in favor of clean PSR-4.
 
-## Hooks WordPress
-- Actions plugin : `add_action( 'init', [ $this, 'register' ] )`
-- Toujours utiliser priority explicite si ordre critique (default 10)
-- Préférer méthodes de classe à closures (testable + désinscriptible)
+## WordPress hooks
+- Plugin actions: `add_action( 'init', [ $this, 'register' ] )`
+- Always use an explicit priority when order is critical (default is 10)
+- Prefer class methods to closures (testable + un-registerable)
 
 ## i18n
-- Toute chaîne user-facing : `__( 'Texte', 'ab-testing-wordpress' )`
-- Echo direct : `esc_html_e( 'Texte', 'ab-testing-wordpress' )`
-- Avec variables : `sprintf( __( '%d conversions', 'ab-testing-wordpress' ), $n )`
-- Charger : `load_plugin_textdomain( 'ab-testing-wordpress', false, dirname( plugin_basename( __FILE__ ) ) . '/languages' )` au hook `init`
+- Every user-facing string: `__( 'Text', 'ab-testing-wordpress' )`
+- Direct echo: `esc_html_e( 'Text', 'ab-testing-wordpress' )`
+- With variables: `sprintf( __( '%d conversions', 'ab-testing-wordpress' ), $n )`
+- Load: `load_plugin_textdomain( 'ab-testing-wordpress', false, dirname( plugin_basename( __FILE__ ) ) . '/languages' )` on the `init` hook
+- **Source strings are always in English.** French (or any other language) translations live in `languages/*.po` if anyone provides them.
 
-## Headers fichier principal
+## Main file headers
 ```php
 <?php
 /**
  * Plugin Name: AB Testing WordPress
- * Description: A/B testing simple, tracking interne, split cookie 50/50.
+ * Description: Simple A/B testing, internal tracking, 50/50 cookie split.
  * Version: 0.1.0
  * Requires at least: 6.0
  * Requires PHP: 8.1
@@ -49,12 +50,12 @@ defined( 'ABSPATH' ) || exit;
 ```
 
 ## Defensive boot
-Tout fichier PHP commence par `defined( 'ABSPATH' ) || exit;` pour empêcher l'accès direct.
+Every PHP file starts with `defined( 'ABSPATH' ) || exit;` to prevent direct access.
 
-## Activation / désactivation / uninstall
-- `register_activation_hook( __FILE__, [ Abtest\Plugin::class, 'activate' ] )` — création tables, options par défaut.
-- `register_deactivation_hook( __FILE__, [ Abtest\Plugin::class, 'deactivate' ] )` — clean transients, garder les données.
-- `uninstall.php` à la racine — drop tables, delete options (uniquement si désinstallation).
+## Activation / deactivation / uninstall
+- `register_activation_hook( __FILE__, [ Abtest\Plugin::class, 'activate' ] )` — create tables, default options.
+- `register_deactivation_hook( __FILE__, [ Abtest\Plugin::class, 'deactivate' ] )` — clean transients, keep the data.
+- `uninstall.php` at the root — drop tables, delete options (only on uninstall).
 
-## Pas de side-effect au require
-Le fichier principal enregistre des hooks, ne fait RIEN au load (évite de casser l'activation d'autres plugins).
+## No side-effects at require
+The main file registers hooks, does NOTHING at load time (avoids breaking other plugins' activation).

@@ -1,14 +1,14 @@
 ---
-description: Run PHPUnit test suite
+description: Run the PHPUnit test suite
 ---
 
-Lance la suite de tests PHPUnit.
+Run the PHPUnit test suite.
 
-Si `composer.json` expose un script `test` : `composer run test`.
-Sinon : `./vendor/bin/phpunit`.
+If `composer.json` exposes a `test` script: `composer run test`.
+Otherwise: `./vendor/bin/phpunit`.
 
-À l'issue :
-- Si tests verts → résume brièvement la couverture des changements récents.
-- Si tests rouges → diagnose la première erreur, propose un fix, ne mets PAS à jour les snapshots/expectations sans validation explicite (ça masquerait le bug).
+Afterwards:
+- If tests are green → briefly summarize the coverage of the recent changes.
+- If tests are red → diagnose the first error, propose a fix, do NOT update snapshots / expectations without explicit validation (that would mask the bug).
 
-Ne jamais marquer une tâche "complete" si la suite n'est pas verte.
+Never mark a task "complete" if the suite isn't green.

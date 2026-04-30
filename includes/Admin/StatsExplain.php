@@ -28,12 +28,12 @@ final class StatsExplain {
 	private const FLAT_EFFECT_THRESHOLD = 0.15;
 
 	/**
-	 * Returns a one-line explanation in French (UI language) suitable for a tooltip.
-	 * Used only when no winner is declared.
+	 * Returns a one-line explanation suitable for a tooltip. Used only when
+	 * no winner is declared.
 	 *
 	 * @param array  $multi      Output of Stats::compute_multi() — needs 'variants', 'comparisons', 'alpha'.
 	 * @param string $status     Experiment status (running, ended, paused, draft).
-	 * @param string $started_at Mysql GMT datetime ('YYYY-MM-DD HH:MM:SS') or '' if not started.
+	 * @param string $started_at MySQL GMT datetime ('YYYY-MM-DD HH:MM:SS') or '' if not started.
 	 * @param int    $now        Optional epoch override for tests (defaults to time()).
 	 */
 	public static function no_winner_reason( array $multi, string $status, string $started_at, ?int $now = null ): string {
@@ -47,9 +47,8 @@ final class StatsExplain {
 			return __( 'Baseline experiment — there is no second variant to compare against.', 'ab-testing-wordpress' );
 		}
 
-		$impressions      = array_map( static fn( $v ) => (int) ( $v['impressions'] ?? 0 ), $variants );
-		$min_impressions  = min( $impressions );
-		$total_imp        = array_sum( $impressions );
+		$impressions     = array_map( static fn( $v ) => (int) ( $v['impressions'] ?? 0 ), $variants );
+		$min_impressions = min( $impressions );
 
 		// (1) Running for less than 2 weeks → too early, don't even discuss the numbers.
 		if ( 'running' === $status && '' !== $started_at ) {
@@ -58,8 +57,8 @@ final class StatsExplain {
 				$days = (int) floor( ( $now - $started_ts ) / DAY_IN_SECONDS );
 				if ( $days < self::MIN_DAYS_RUNNING_FOR_DECISION ) {
 					return sprintf(
-						/* translators: %d: days running */
-						__( 'Trop tôt pour décider (%d jours). En général il faut 2 à 4 semaines pour atteindre une significance fiable sur un site à trafic modéré. Patience.', 'ab-testing-wordpress' ),
+						/* translators: %d: number of days the experiment has been running */
+						__( 'Too early to decide (%d days). Most A/B tests on moderate-traffic sites need 2–4 weeks to reach reliable significance. Be patient.', 'ab-testing-wordpress' ),
 						$days
 					);
 				}
@@ -70,7 +69,7 @@ final class StatsExplain {
 		if ( $min_impressions < self::MIN_IMP_PER_VARIANT ) {
 			return sprintf(
 				/* translators: 1: smallest variant impressions, 2: typical threshold */
-				__( 'Échantillon trop petit (%1$d impressions sur la variante la moins vue, %2$d minimum recommandé). Avec si peu de visiteurs on ne peut pas distinguer un vrai gain d\'un coup de chance. Continuer à collecter ou élargir le trafic.', 'ab-testing-wordpress' ),
+				__( 'Sample too small (%1$d impressions on the least-seen variant, %2$d minimum recommended). With so few visitors a real gain cannot be told apart from random noise. Keep collecting or expand the traffic.', 'ab-testing-wordpress' ),
 				$min_impressions,
 				self::MIN_IMP_PER_VARIANT
 			);
@@ -91,7 +90,7 @@ final class StatsExplain {
 		if ( $best_p < $alpha * self::BORDERLINE_FACTOR ) {
 			return sprintf(
 				/* translators: 1: variant label, 2: p-value, 3: alpha threshold */
-				__( 'Variante %1$s très proche du seuil (p=%2$.3f vs α=%3$.3f). Quelques semaines de plus de collecte suffiront probablement à trancher.', 'ab-testing-wordpress' ),
+				__( 'Variant %1$s is very close to the threshold (p=%2$.3f vs α=%3$.3f). A few more weeks of data should be enough to reach a verdict.', 'ab-testing-wordpress' ),
 				$best_label,
 				$best_p,
 				$alpha
@@ -112,8 +111,8 @@ final class StatsExplain {
 
 		if ( $relative < self::FLAT_EFFECT_THRESHOLD ) {
 			return sprintf(
-				/* translators: %s: relative spread percentage */
-				__( 'Aucune différence détectable entre les variantes (toutes dans une fourchette de ±%s). Ce changement n\'a probablement pas d\'effet — passer au test suivant.', 'ab-testing-wordpress' ),
+				/* translators: %s: relative spread percentage (e.g. "9.0%") */
+				__( 'No detectable difference between variants (all within ±%s of each other). This change probably has no effect — move on to the next test.', 'ab-testing-wordpress' ),
 				number_format_i18n( $relative * 100, 1 ) . '%'
 			);
 		}
@@ -121,7 +120,7 @@ final class StatsExplain {
 		// (6) Generic fallback — observed difference, not enough evidence.
 		return sprintf(
 			/* translators: 1: best p-value, 2: alpha threshold */
-			__( 'Différence observée mais pas assez nette pour trancher (meilleur p=%1$.3f, il faudrait p<%2$.3f). Continuer le test ou augmenter le trafic.', 'ab-testing-wordpress' ),
+			__( 'A difference is observed but not sharp enough to call (best p=%1$.3f, threshold is p<%2$.3f). Keep the test running or grow the traffic.', 'ab-testing-wordpress' ),
 			$best_p,
 			$alpha
 		);

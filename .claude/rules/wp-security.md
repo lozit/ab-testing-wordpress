@@ -1,78 +1,78 @@
-# Règles sécurité WordPress
+# WordPress security rules
 
-S'applique à : tout fichier `.php` du plugin manipulant input utilisateur, DB, ou sortie HTML.
+Applies to: every `.php` file in the plugin handling user input, the DB, or HTML output.
 
-## SQL — toujours préparer
+## SQL — always prepare
 ```php
-// ❌ JAMAIS
+// ❌ NEVER
 $wpdb->query( "SELECT * FROM $table WHERE id = $user_input" );
 
-// ✅ TOUJOURS
+// ✅ ALWAYS
 $wpdb->get_results(
   $wpdb->prepare( "SELECT * FROM {$wpdb->prefix}abtest_events WHERE experiment_id = %d", $exp_id )
 );
 ```
-Placeholders : `%d` (int), `%f` (float), `%s` (string). Pour `IN (?)` : construire les `%d,%d,%d` dynamiquement.
+Placeholders: `%d` (int), `%f` (float), `%s` (string). For `IN (?)`: build the `%d,%d,%d` placeholder string dynamically.
 
-## Échappement sortie (toujours au dernier moment, à l'output)
-| Contexte | Fonction |
+## Output escaping (always at the last moment, at the output)
+| Context | Function |
 |---|---|
-| Texte HTML | `esc_html()` / `esc_html__()` |
-| Attribut HTML | `esc_attr()` / `esc_attr__()` |
+| HTML text | `esc_html()` / `esc_html__()` |
+| HTML attribute | `esc_attr()` / `esc_attr__()` |
 | URL | `esc_url()` |
-| Bloc HTML autorisé | `wp_kses_post()` |
-| JSON inline JS | `wp_json_encode()` |
+| Allowed HTML block | `wp_kses_post()` |
+| Inline JS JSON | `wp_json_encode()` |
 | Textarea | `esc_textarea()` |
 
-Exemple admin :
+Admin example:
 ```php
 <input type="text" name="abtest_goal" value="<?php echo esc_attr( $goal ); ?>" />
 <p><?php echo esc_html__( 'Goal URL', 'ab-testing-wordpress' ); ?></p>
 ```
 
-## Sanitization input (à l'entrée)
-| Type | Fonction |
+## Input sanitization (at intake)
+| Type | Function |
 |---|---|
-| Texte single-ligne | `sanitize_text_field()` |
+| Single-line text | `sanitize_text_field()` |
 | Email | `sanitize_email()` |
-| URL | `esc_url_raw()` (stockage) ou `sanitize_url()` |
-| Slug / clé | `sanitize_key()` |
-| Int positif | `absint()` |
-| HTML autorisé | `wp_kses_post()` |
-| Array via `$_POST` | itérer + sanitizer chaque champ |
+| URL | `esc_url_raw()` (storage) or `sanitize_url()` |
+| Slug / key | `sanitize_key()` |
+| Positive int | `absint()` |
+| Allowed HTML | `wp_kses_post()` |
+| Array via `$_POST` | iterate + sanitize each field |
 
-## Nonces + capabilities (toute action état-modifiante)
+## Nonces + capabilities (every state-changing action)
 ```php
-// Form admin :
+// Admin form:
 wp_nonce_field( 'abtest_save_experiment', '_abtest_nonce' );
 
-// Handler :
+// Handler:
 if ( ! current_user_can( 'manage_options' ) ) {
     wp_die( esc_html__( 'Forbidden', 'ab-testing-wordpress' ), 403 );
 }
 check_admin_referer( 'abtest_save_experiment', '_abtest_nonce' );
 ```
 
-REST API : utiliser `permission_callback` (jamais `__return_true` sauf endpoints publics intentionnels comme conversion tracking — qui doit alors avoir rate-limiting + dédup).
+REST API: use `permission_callback` (never `__return_true` except for intentional public endpoints like conversion tracking — which must then have rate-limiting + dedup).
 
 ## REST endpoints — checklist
-- `permission_callback` défini (même si `__return_true`, c'est explicite)
-- `args` schema avec `validate_callback` + `sanitize_callback`
-- Pas de retour direct d'objets DB sans filtrage des champs sensibles
-- Rate limiting par IP/visitor pour endpoints publics (ex : conversion)
+- `permission_callback` defined (even if `__return_true`, be explicit)
+- `args` schema with `validate_callback` + `sanitize_callback`
+- Don't return raw DB objects without filtering sensitive fields
+- Per-IP / per-visitor rate limiting on public endpoints (e.g. conversion)
 
-## Capabilities standard
-- `manage_options` : admin du plugin (créer/éditer expériences)
-- `edit_posts` : si on autorise éditeurs à voir les stats
-- Custom cap `manage_abtests` : à envisager v2 pour rôle dédié
+## Standard capabilities
+- `manage_options`: plugin admin (create / edit experiments)
+- `edit_posts`: if we let editors view stats
+- Custom cap `manage_abtests`: consider in v2 for a dedicated role
 
 ## Cookies
-- Préfixer `abtest_` (notre namespace)
-- `httponly` true par défaut, `secure` si HTTPS
+- Prefix `abtest_` (our namespace)
+- `httponly` true by default, `secure` over HTTPS
 - `samesite=Lax`
-- Durée raisonnable (30j max pour assignment)
+- Reasonable lifetime (30 days max for assignment)
 
-## Chargement assets
-- `wp_enqueue_script`/`_style` UNIQUEMENT — jamais `<script>` direct.
-- Versionner avec `filemtime()` ou la version plugin pour cache busting.
-- `wp_localize_script` ou `wp_add_inline_script` pour passer données PHP→JS.
+## Asset loading
+- `wp_enqueue_script` / `_style` ONLY — never raw `<script>`.
+- Version with `filemtime()` or the plugin version for cache busting.
+- `wp_localize_script` or `wp_add_inline_script` to pass PHP→JS data.

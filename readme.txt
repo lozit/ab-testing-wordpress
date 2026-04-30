@@ -4,7 +4,7 @@ Tags: ab testing, split testing, conversion, analytics
 Requires at least: 6.0
 Tested up to: 6.9
 Requires PHP: 8.1
-Stable tag: 0.10.0
+Stable tag: 0.10.1
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -109,9 +109,12 @@ v1 only swaps the entire page (the variant must be a separate post). Block-level
 
 == Changelog ==
 
+= 0.10.1 =
+* i18n cleanup: every committed file is now in English. The plugin's user-facing strings (HelpTabs, StatsExplain) ship as English source so the standard WordPress translation pipeline (`.pot` / `.po`) can produce localized versions later. Audit reports, todo, slash commands, internal rules, lessons-learned all translated. CLAUDE.md adds an explicit "English only in the repo" rule to prevent regressions.
+
 = 0.10.0 =
-* New : **WordPress contextual help** on the A/B Tests screens. Click "Help" at the top-right of any A/B Tests page to get 4 didactic tabs : Quick start, Stats expliquées (p-value / α / "no winner" reasons), Multi-variantes (Bonferroni correction), Privacy & RGPD. Designed for non-statisticians installing the plugin for the first time.
-* New : **contextual tooltip on the "No winner" badge** in the experiments list. Hover (or screen-reader-focus) the badge to see WHY this experiment doesn't have a winner — explanation auto-detects between : "trop tôt" (running < 14 days), "échantillon trop petit" (< 200 imp/variant), "borderline" (p just above α), "vrai null result" (rates within ±15%), or generic "continuer le test". Powered by a new pure-function helper `Abtest\Admin\StatsExplain` with 8 unit tests covering each branch.
+* New: **WordPress contextual help** on the A/B Tests screens. Click "Help" at the top-right of any A/B Tests page to get 4 didactic tabs: Quick start, Stats explained (p-value / α / "no winner" reasons), Multi-variant (Bonferroni correction), Privacy & GDPR. Designed for non-statisticians installing the plugin for the first time.
+* New: **contextual tooltip on the "No winner" badge** in the experiments list. Hover (or screen-reader-focus) the badge to see WHY this experiment doesn't have a winner — the explanation auto-detects between: "too early" (running < 14 days), "sample too small" (< 200 imp/variant), "borderline" (p just above α), "genuine null result" (rates within ±15%), or generic "keep the test running". Powered by a new pure-function helper `Abtest\Admin\StatsExplain` with 8 unit tests covering each branch.
 
 = 0.9.3 =
 * PHPCS WordPress Coding Standards : repaid the 1083-finding cosmetic dette. The codebase is now fully WPCS-clean and the GitHub Actions `lint` job is BLOCKING (was `continue-on-error`). Any new code that violates the ruleset fails the build.

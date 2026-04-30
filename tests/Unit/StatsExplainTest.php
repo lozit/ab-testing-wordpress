@@ -31,8 +31,8 @@ final class StatsExplainTest extends TestCase {
 		$now    = strtotime( '2026-04-30 12:00:00 UTC' );
 		$started = '2026-04-25 09:00:00'; // ~5 days ago
 		$reason  = StatsExplain::no_winner_reason( $multi, 'running', $started, $now );
-		$this->assertStringContainsString( 'Trop tôt', $reason );
-		$this->assertStringContainsString( '5 jours', $reason );
+		$this->assertStringContainsString( 'Too early', $reason );
+		$this->assertStringContainsString( '5 days', $reason );
 	}
 
 	public function test_small_sample_is_underpowered(): void {
@@ -45,7 +45,7 @@ final class StatsExplainTest extends TestCase {
 			[ 'B' => [ 'p_value' => 0.08, 'lift' => 1.5, 'significant' => false ] ]
 		);
 		$reason = StatsExplain::no_winner_reason( $multi, 'ended', '2026-01-01 09:00:00' );
-		$this->assertStringContainsString( 'trop petit', $reason );
+		$this->assertStringContainsString( 'too small', $reason );
 		$this->assertStringContainsString( '95', $reason ); // smallest variant
 	}
 
@@ -59,7 +59,7 @@ final class StatsExplainTest extends TestCase {
 			[ 'B' => [ 'p_value' => 0.055, 'lift' => 0.4, 'significant' => false ] ]
 		);
 		$reason = StatsExplain::no_winner_reason( $multi, 'ended', '2026-01-01 09:00:00' );
-		$this->assertStringContainsString( 'proche du seuil', $reason );
+		$this->assertStringContainsString( 'close to the threshold', $reason );
 		$this->assertStringContainsString( 'B', $reason );
 	}
 
@@ -73,7 +73,7 @@ final class StatsExplainTest extends TestCase {
 			[ 'B' => [ 'p_value' => 0.85, 'lift' => 0.04, 'significant' => false ] ]
 		);
 		$reason = StatsExplain::no_winner_reason( $multi, 'ended', '2026-01-01 09:00:00' );
-		$this->assertStringContainsString( 'Aucune différence', $reason );
+		$this->assertStringContainsString( 'No detectable difference', $reason );
 	}
 
 	public function test_generic_fallback_observed_but_inconclusive(): void {
@@ -86,7 +86,7 @@ final class StatsExplainTest extends TestCase {
 			[ 'B' => [ 'p_value' => 0.18, 'lift' => 0.4, 'significant' => false ] ]
 		);
 		$reason = StatsExplain::no_winner_reason( $multi, 'ended', '2026-01-01 09:00:00' );
-		$this->assertStringContainsString( 'Différence observée', $reason );
+		$this->assertStringContainsString( 'difference is observed', $reason );
 		$this->assertStringContainsString( '0.180', $reason );
 	}
 
@@ -111,8 +111,8 @@ final class StatsExplainTest extends TestCase {
 		$now     = strtotime( '2026-04-30 12:00:00 UTC' );
 		$started = '2026-03-25 09:00:00'; // ~36 days ago
 		$reason  = StatsExplain::no_winner_reason( $multi, 'running', $started, $now );
-		$this->assertStringNotContainsString( 'Trop tôt', $reason );
-		$this->assertStringContainsString( 'proche du seuil', $reason );
+		$this->assertStringNotContainsString( 'Too early', $reason );
+		$this->assertStringContainsString( 'close to the threshold', $reason );
 	}
 
 	public function test_multivariant_uses_corrected_alpha(): void {
@@ -132,6 +132,6 @@ final class StatsExplainTest extends TestCase {
 		$reason = StatsExplain::no_winner_reason( $multi, 'ended', '2026-01-01 09:00:00' );
 		$this->assertStringContainsString( 'C', $reason );
 		// p=0.04 < 2×α=0.05 → borderline message expected.
-		$this->assertStringContainsString( 'proche du seuil', $reason );
+		$this->assertStringContainsString( 'close to the threshold', $reason );
 	}
 }
