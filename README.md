@@ -1,7 +1,7 @@
 # A/B Testing for WordPress
 
 [![CI](https://github.com/lozit/ab-testing-wordpress/actions/workflows/ci.yml/badge.svg)](https://github.com/lozit/ab-testing-wordpress/actions/workflows/ci.yml)
-[![Security Audit](https://img.shields.io/badge/security%20audit-9.5%2F10-brightgreen)](./docs/security/latest.md)
+[![Security Audit](https://img.shields.io/badge/security%20audit-10%2F10-brightgreen)](./docs/security/latest.md)
 [![License: GPL v2+](https://img.shields.io/badge/License-GPL%20v2%2B-blue.svg)](./LICENSE)
 [![PHP 8.1+](https://img.shields.io/badge/PHP-8.1%2B-777BB4.svg)](#)
 [![WordPress 6.0+](https://img.shields.io/badge/WordPress-6.0%2B-21759B.svg)](#)
