@@ -4,7 +4,7 @@ Tags: ab testing, split testing, conversion, analytics
 Requires at least: 6.0
 Tested up to: 6.9
 Requires PHP: 8.1
-Stable tag: 0.11.1
+Stable tag: 0.11.2
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -115,6 +115,13 @@ v1 only swaps the entire page (the variant must be a separate post). Block-level
 4. Settings — generic webhooks (Zapier / Make / n8n / Slack) and REST API documentation
 
 == Changelog ==
+
+= 0.11.2 =
+* WordPress.org compliance hardening (post-Plugin-Check first run):
+  * Plugin Check CI now runs against the **built** plugin folder (mirroring `release.yml`'s rsync) instead of the raw repo, so dev-only files (`tests/`, `.claude/`, `.github/`, `CLAUDE.md`, `composer.json`, etc.) no longer pollute the report. Cuts ~80% of the false-positive noise.
+  * `ignore-codes` list added with one-line rationale per entry: custom-table direct queries, file-system ops on plugin-controlled paths, `mt_rand`/`mt_srand` for variant picking, `meta_query` slow-query warnings, the `init` core-hook false positive.
+* Removed `load_plugin_textdomain()` call: WordPress.org auto-loads translations for hosted plugins since WP 4.6 — manual loading is now discouraged. Text-domain header stays declared so JIT loading still works.
+* Added empty `languages/` folder (with a `.gitkeep` documenting why) to satisfy the `Domain Path: /languages` plugin header — Plugin Check (and wp.org reviewers) flag the header when the folder doesn't exist.
 
 = 0.11.1 =
 * WordPress.org compliance: Chart.js (used to render the per-URL conversion-rate timeline on the admin list view) is no longer loaded from the jsdelivr CDN — it's now bundled under `assets/js/vendor/chart.umd.min.js`. This satisfies the wp.org plugin guideline #5 "Trying to remotely load code". MIT license attribution + update instructions are documented in `assets/js/vendor/README.md`.

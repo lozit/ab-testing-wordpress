@@ -24,9 +24,10 @@ final class Plugin {
 
 	public static function boot(): void {
 		$plugin = self::instance();
-		// WP 6.7+ flags load_plugin_textdomain() called before `init` as
-		// "_load_textdomain_just_in_time was called incorrectly" — defer to init/0.
-		add_action( 'init', [ $plugin, 'load_textdomain' ], 0 );
+		// Note : we don't call load_plugin_textdomain() — wordpress.org auto-loads
+		// translations for plugins hosted there since WP 4.6, and WP 6.7+ logs a
+		// notice when a plugin calls it manually before `init`. The text-domain
+		// remains declared in the plugin header so JIT loading still works.
 		$plugin->maybe_upgrade_schema();
 		$plugin->register_components();
 	}
@@ -54,14 +55,6 @@ final class Plugin {
 		Scheduler::deactivate();
 		Watcher::deactivate();
 		flush_rewrite_rules();
-	}
-
-	public function load_textdomain(): void {
-		load_plugin_textdomain(
-			'ab-testing-wordpress',
-			false,
-			dirname( plugin_basename( ABTEST_PLUGIN_FILE ) ) . '/languages'
-		);
 	}
 
 	private function maybe_upgrade_schema(): void {
