@@ -95,3 +95,21 @@ jobs:
       - name: Annotate PR with PHPCS findings
         if: always()
         run: cs2pr --graceful-warnings /tmp/phpcs.xml || true
+
+  plugin-check:
+    name: WordPress.org Plugin Check
+    runs-on: ubuntu-latest
+    # Runs the same automated checks as the wordpress.org reviewers (plugin headers,
+    # i18n, late-escaping, deprecated functions, internationalization, etc.). Must
+    # stay green : a failure here is the same as a future wordpress.org rejection.
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run WordPress Plugin Check
+        uses: wordpress/plugin-check-action@v1
+        with:
+          # The action defaults to `error` severity ; we surface warnings too so
+          # we catch issues before submission. Bump down to `error` if the noise
+          # gets in the way.
+          wp-version: 'latest'

@@ -4,7 +4,7 @@ Tags: ab testing, split testing, conversion, analytics
 Requires at least: 6.0
 Tested up to: 6.9
 Requires PHP: 8.1
-Stable tag: 0.11.0
+Stable tag: 0.11.1
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -115,6 +115,10 @@ v1 only swaps the entire page (the variant must be a separate post). Block-level
 4. Settings — generic webhooks (Zapier / Make / n8n / Slack) and REST API documentation
 
 == Changelog ==
+
+= 0.11.1 =
+* WordPress.org compliance: Chart.js (used to render the per-URL conversion-rate timeline on the admin list view) is no longer loaded from the jsdelivr CDN — it's now bundled under `assets/js/vendor/chart.umd.min.js`. This satisfies the wp.org plugin guideline #5 "Trying to remotely load code". MIT license attribution + update instructions are documented in `assets/js/vendor/README.md`.
+* New CI step: WordPress's official `plugin-check-action` runs on every push to `main` and PR. Same automated checks as the wp.org reviewers (plugin headers, i18n, late escaping, deprecated APIs, internationalization). Any future regression that would be flagged at submission time is caught at push time instead.
 
 = 0.11.0 =
 * New: **per-URL no-index toggle**. A new "SEO" row on the experiment edit form lets you mark any test URL as no-index. When checked, every visit to that URL emits both a `<meta name="robots" content="noindex,nofollow">` tag and a matching `X-Robots-Tag` HTTP header — regardless of which experiment is currently running. Recommended for landing pages dedicated to paid traffic, or any URL where you don't want both A/B variants to compete in search results.

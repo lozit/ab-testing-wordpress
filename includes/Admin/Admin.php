@@ -86,10 +86,13 @@ final class Admin {
 		$action = isset( $_GET['action'] ) ? sanitize_key( wp_unslash( $_GET['action'] ) ) : 'list';
 
 		// Chart.js + our chart bootstrap, only on the main list view.
+		// Chart.js is vendored locally under assets/js/vendor/ so we don't violate
+		// the WordPress.org plugin guideline against remote-loading code at runtime.
+		// See assets/js/vendor/README.md for source / license / update instructions.
 		if ( 'list' === $action ) {
 			wp_enqueue_script(
 				'abtest-chartjs',
-				'https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js',
+				ABTEST_PLUGIN_URL . 'assets/js/vendor/chart.umd.min.js',
 				[],
 				'4.4.1',
 				true
