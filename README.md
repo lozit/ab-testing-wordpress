@@ -1,6 +1,6 @@
 # Uplift – A/B Testing
 
-[![CI](https://github.com/lozit/ab-testing-wordpress/actions/workflows/ci.yml/badge.svg)](https://github.com/lozit/ab-testing-wordpress/actions/workflows/ci.yml)
+[![CI](https://github.com/lozit/uplift-ab-testing/actions/workflows/ci.yml/badge.svg)](https://github.com/lozit/uplift-ab-testing/actions/workflows/ci.yml)
 [![Security Audit](https://img.shields.io/badge/security%20audit-10%2F10-brightgreen)](./docs/security/latest.md)
 [![License: GPL v2+](https://img.shields.io/badge/License-GPL%20v2%2B-blue.svg)](./LICENSE)
 [![PHP 8.1+](https://img.shields.io/badge/PHP-8.1%2B-777BB4.svg)](#)
@@ -93,9 +93,9 @@ Built around three core ideas:
 1. Clone this repo into `wp-content/plugins/`:
    ```bash
    cd wp-content/plugins
-   git clone https://github.com/<you>/ab-testing-wordpress.git
+   git clone https://github.com/<you>/uplift-ab-testing.git
    ```
-2. Activate **A/B Testing WordPress** in wp-admin → Plugins.
+2. Activate **Uplift – A/B Testing** in wp-admin → Plugins.
 
 ### Create your first test
 1. wp-admin → **A/B Tests** → **Add new**
@@ -207,7 +207,7 @@ Security is verified at three points :
 **Disclosure policy** : see [`SECURITY.md`](./SECURITY.md)
 **Audit methodology** : [`.claude/commands/security-audit.md`](./.claude/commands/security-audit.md)
 
-To report a vulnerability : use GitHub's **Private vulnerability reporting** at https://github.com/lozit/ab-testing-wordpress/security/advisories — please do not open a public issue.
+To report a vulnerability : use GitHub's **Private vulnerability reporting** at https://github.com/lozit/uplift-ab-testing/security/advisories — please do not open a public issue.
 
 ---
 

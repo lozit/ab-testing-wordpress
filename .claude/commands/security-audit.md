@@ -18,7 +18,7 @@ Run in this order. If any fails, fix before moving on to the manual audit (the W
 - `composer run lint` — PHPCS WordPress ruleset.
 - `composer run test` then `composer run test:integration` — cover regressions on consent gate, dedup, state machine, batch stats.
 - `composer audit` — CVEs on composer dependencies.
-- `gh api repos/lozit/ab-testing-wordpress/dependabot/alerts --jq '.[] | select(.state == "open") | {state, severity, package: .security_advisory.summary}'` — open Dependabot alerts (ignore "fixed" / "dismissed"). Skip if Dependabot is disabled on the repo.
+- `gh api repos/lozit/uplift-ab-testing/dependabot/alerts --jq '.[] | select(.state == "open") | {state, severity, package: .security_advisory.summary}'` — open Dependabot alerts (ignore "fixed" / "dismissed"). Skip if Dependabot is disabled on the repo.
 
 If everything passes: continue. If something breaks: report the tooling findings in the report first, fix, re-run, then move on.
 

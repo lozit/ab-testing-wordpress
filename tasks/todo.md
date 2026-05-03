@@ -1,4 +1,4 @@
-# Todo — AB Testing WordPress Plugin
+# Todo — Uplift – A/B Testing Plugin
 
 ## ✅ Shipped
 
@@ -83,7 +83,7 @@
 - [x] **Plugin Check — final cleanup pass** (v0.11.3) — closed the last 4 findings on the built artifact : (1) excluded `wp-tests-config.php`, `phpunit.xml*`, `phpcs.xml*` from `release.yml` + `ci.yml` rsync (test bootstraps shouldn't ship), (2) replaced `languages/.gitkeep` with the canonical `languages/index.php` "Silence is golden" pattern (`.gitkeep` was rejected as hidden), (3) prefixed two unprefixed locals in `templates/blank-canvas.php` (`$insert_at` → `$abtest_insert_at`, `$body_close` → `$abtest_body_close`). CI Plugin Check now green : 0 errors, 0 warnings.
 - [x] **Trademark rename → "Uplift – A/B Testing"** (v0.12.0) — closed the last wp.org submission blocker. Coordinated multi-file change : plugin display name, slug `ab-testing-wordpress` → `uplift-ab-testing`, text domain replaced in every `__()`/`_e()` across `includes/`, main file `git mv`'d to `uplift-ab-testing.php`, Composer + npm package names updated, `phpcs.xml.dist` text-domain element + file ref, `tests/Integration/bootstrap.php` require path, `release.yml` + `ci.yml` build path + zip filename + plugin-file grep. **Internal names preserved** (no breaking change for existing installs) : `Abtest\` namespace, `abtest_*` hooks/cookies, REST `abtest/v1`, table `wp_abtest_events`, option keys.
 - [ ] **Set up `10up/action-wordpress-plugin-deploy` GitHub Action** — when ready to publish on wordpress.org, this Action auto-deploys the plugin .zip + the `.wordpress-org/` assets to the SVN repo on each version tag. Needs a wordpress.org SVN username / password stored in GitHub Actions secrets.
-- [ ] **Optional follow-up : rename the GitHub repo** `lozit/ab-testing-wordpress` → `lozit/uplift-ab-testing`. GitHub auto-creates a permanent redirect from the old URL, so existing badges, clones, and links keep working. After renaming : update all URL references in `README.md`, `SECURITY.md`, `uplift-ab-testing.php` `Plugin URI` header, `tasks/todo.md`, `.claude/commands/security-audit.md`. Not blocking for wp.org submission.
+- [x] **GitHub repo renamed** (2026-05-04) — `lozit/ab-testing-wordpress` → `lozit/uplift-ab-testing` via `gh repo rename`. GitHub set up the permanent redirect for the old URL automatically. Updated all URL refs in `README.md` (badges, clone URL, security advisories link), `SECURITY.md`, `uplift-ab-testing.php` `Plugin URI`, `includes/Admin/HelpTabs.php` (3 GitHub links), `.claude/commands/security-audit.md` (Dependabot API call). Local `origin` remote also auto-updated by `gh`. Historical `docs/security/audit-*.md` reports left untouched (frozen-in-time snapshots — old URLs auto-redirect).
 
 ### WordPress.org submission — open blockers (must address before submitting)
 

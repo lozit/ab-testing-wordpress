@@ -1,7 +1,7 @@
 <?php
 /**
  * Plugin Name:       Uplift – A/B Testing
- * Plugin URI:        https://github.com/lozit/ab-testing-wordpress
+ * Plugin URI:        https://github.com/lozit/uplift-ab-testing
  * Description:       Lightweight A/B testing for pages: internal tracking, persistent-cookie 50/50 split, GDPR-friendly. No third-party dependency.
  * Version:           0.12.0
  * Requires at least: 6.0

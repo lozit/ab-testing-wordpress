@@ -192,9 +192,9 @@ final class HelpTabs {
 		ob_start();
 		?>
 		<p><strong><?php esc_html_e( 'Going further', 'uplift-ab-testing' ); ?></strong></p>
-		<p><a href="https://github.com/lozit/ab-testing-wordpress" target="_blank" rel="noopener">GitHub README</a></p>
-		<p><a href="https://github.com/lozit/ab-testing-wordpress/blob/main/SECURITY.md" target="_blank" rel="noopener">Security policy</a></p>
-		<p><a href="https://github.com/lozit/ab-testing-wordpress/blob/main/docs/security/latest.md" target="_blank" rel="noopener">Latest security audit</a></p>
+		<p><a href="https://github.com/lozit/uplift-ab-testing" target="_blank" rel="noopener">GitHub README</a></p>
+		<p><a href="https://github.com/lozit/uplift-ab-testing/blob/main/SECURITY.md" target="_blank" rel="noopener">Security policy</a></p>
+		<p><a href="https://github.com/lozit/uplift-ab-testing/blob/main/docs/security/latest.md" target="_blank" rel="noopener">Latest security audit</a></p>
 		<?php
 		return (string) ob_get_clean();
 	}
