@@ -4,7 +4,7 @@ Tags: ab testing, split testing, conversion, analytics
 Requires at least: 6.0
 Tested up to: 6.9
 Requires PHP: 8.1
-Stable tag: 0.11.2
+Stable tag: 0.11.3
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -115,6 +115,13 @@ v1 only swaps the entire page (the variant must be a separate post). Block-level
 4. Settings — generic webhooks (Zapier / Make / n8n / Slack) and REST API documentation
 
 == Changelog ==
+
+= 0.11.3 =
+* WordPress.org compliance — final Plugin Check cleanup:
+  * `wp-tests-config.php`, `phpunit.xml*`, and `phpcs.xml*` are now excluded from the built plugin folder by both `release.yml` and `ci.yml`. They were leaking into the artifact and tripping `missing_direct_file_access_protection` (the test bootstrap doesn't and shouldn't have an `ABSPATH` guard).
+  * Replaced `languages/.gitkeep` with `languages/index.php` (the canonical "Silence is golden" pattern). `.gitkeep` was rejected as a hidden file by Plugin Check.
+  * Renamed two unprefixed locals in `templates/blank-canvas.php` (`$insert_at` → `$abtest_insert_at`, `$body_close` → `$abtest_body_close`). Template files run in global scope, so unprefixed top-level vars trip `PrefixAllGlobals.NonPrefixedVariableFound`.
+* Plugin Check on the built artifact is now green: 0 errors, 0 warnings.
 
 = 0.11.2 =
 * WordPress.org compliance hardening (post-Plugin-Check first run):

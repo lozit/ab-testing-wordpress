@@ -1,20 +1,20 @@
-# Security Audit Report — `ab-testing-wordpress` v0.11.2
+# Security Audit Report — `ab-testing-wordpress` v0.11.3
 
 **Date** : 2026-05-03
 **Branch** : `main`
-**Auditor** : carry-forward from v0.11.1 (no security delta)
-**Previous** : [`audit-2026-05-03-v0.11.1.md`](./audit-2026-05-03-v0.11.1.md)
+**Auditor** : carry-forward from v0.11.2 (no security delta)
+**Previous** : [`audit-2026-05-03-v0.11.2.md`](./audit-2026-05-03-v0.11.2.md)
 
-> **No security delta from v0.11.1.**
-> v0.11.2 is wp.org-compliance-only :
->   - CI's Plugin Check job now scans the *built* plugin folder (`build/ab-testing-wordpress/`) instead of the raw repo, with an `ignore-codes` allowlist for legitimate plugin patterns (custom-table queries, local-path file ops, variant-picking PRNG). Cuts ~80% of false-positive noise.
->   - Removed the manual `load_plugin_textdomain()` call : wordpress.org auto-loads translations for hosted plugins since WP 4.6.
->   - Added empty `languages/` folder so the `Domain Path: /languages` header points somewhere (otherwise Plugin Check + reviewers flag it).
+> **No security delta from v0.11.2.**
+> v0.11.3 closes the last 4 Plugin Check findings on the built artifact :
+>   - `wp-tests-config.php` + `phpunit.xml*` + `phpcs.xml*` excluded from the bundle (CLI bootstraps that shouldn't ship).
+>   - `languages/.gitkeep` → `languages/index.php` (canonical "Silence is golden", non-hidden).
+>   - Two unprefixed locals in `templates/blank-canvas.php` renamed (`$insert_at` → `$abtest_insert_at`, `$body_close` → `$abtest_body_close`).
 >
-> Pure tooling + header hygiene. No new input surface, no DB writes, no permission changes.
-> All 9 surfaces from the v0.9.3 / v0.10.0 / v0.11.0 reports remain valid. PHPCS still 0 findings.
+> Pure cleanup. No new input surface, no DB writes, no permission changes.
+> All 9 surfaces from the v0.9.3 / v0.10.0 / v0.11.0 reports remain valid. PHPCS still 0 findings. Plugin Check on built artifact : **0 errors, 0 warnings**.
 
-## 📊 Summary (carry-forward from v0.11.1)
+## 📊 Summary (carry-forward from v0.11.2)
 
 | Severity | Count |
 |----------|-------|
@@ -27,7 +27,7 @@
 
 ## 🚦 Verdict
 
-✅ **GO release.** v0.11.2 sharpens the pre-submission CI signal without changing any plugin behavior. Real plugin-side wp.org issues (trademark "WordPress" in name/slug, plus a few suppressed Plugin Check items reviewers may push back on) are documented in `tasks/todo.md` under "WordPress.org submission — open blockers" for the user's decision.
+✅ **GO release.** v0.11.3 finishes the wp.org pre-submission cleanup without touching plugin behavior. Trademark rename (drop "WordPress" from name + slug) is the only remaining wp.org blocker — tracked in `tasks/todo.md` under "WordPress.org submission — open blockers".
 
 ---
 

@@ -1,9 +1,0 @@
-# This folder is referenced by the plugin header's `Domain Path: /languages` directive.
-#
-# When the plugin is hosted on wordpress.org, translations are auto-loaded from this
-# folder by WordPress (since WP 4.6). Translators contribute via translate.wordpress.org
-# and their `.po` / `.mo` files land here at install time.
-#
-# This `.gitkeep` keeps the folder in version control even when no translation file
-# exists yet — without it, Plugin Check (and the wp.org reviewers) flag the
-# `Domain Path` header as pointing to a non-existent folder.

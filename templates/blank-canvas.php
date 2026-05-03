@@ -42,9 +42,9 @@ if ( '' !== $abtest_router_url ) {
 
 	if ( '' !== $abtest_top ) {
 		// Insert just after the first <body...> opening tag.
-		if ( preg_match( '/<body\b[^>]*>/i', $abtest_html, $m, PREG_OFFSET_CAPTURE ) ) {
-			$insert_at  = (int) $m[0][1] + strlen( $m[0][0] );
-			$abtest_html = substr_replace( $abtest_html, $abtest_top, $insert_at, 0 );
+		if ( preg_match( '/<body\b[^>]*>/i', $abtest_html, $abtest_match, PREG_OFFSET_CAPTURE ) ) {
+			$abtest_insert_at = (int) $abtest_match[0][1] + strlen( $abtest_match[0][0] );
+			$abtest_html      = substr_replace( $abtest_html, $abtest_top, $abtest_insert_at, 0 );
 		} else {
 			// No <body> tag — fall back to prepending so the script still loads.
 			$abtest_html = $abtest_top . $abtest_html;
@@ -52,9 +52,9 @@ if ( '' !== $abtest_router_url ) {
 	}
 
 	if ( '' !== $abtest_bottom ) {
-		$body_close = stripos( $abtest_html, '</body>' );
-		if ( false !== $body_close ) {
-			$abtest_html = substr_replace( $abtest_html, $abtest_bottom, $body_close, 0 );
+		$abtest_body_close = stripos( $abtest_html, '</body>' );
+		if ( false !== $abtest_body_close ) {
+			$abtest_html = substr_replace( $abtest_html, $abtest_bottom, $abtest_body_close, 0 );
 		} else {
 			$abtest_html .= $abtest_bottom;
 		}

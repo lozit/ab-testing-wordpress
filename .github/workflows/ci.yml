@@ -142,6 +142,9 @@ jobs:
             --exclude='*.zip' \
             --exclude='test*.html' \
             --exclude='/tools/' \
+            --exclude='wp-tests-config.php' \
+            --exclude='phpunit.xml*' \
+            --exclude='phpcs.xml*' \
             ./ build/ab-testing-wordpress/
 
       - name: Run WordPress Plugin Check
