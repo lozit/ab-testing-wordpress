@@ -382,20 +382,20 @@ final class Router {
 				}
 
 				$label_map = [
-					'A'        => __( 'Variant A', 'ab-testing-wordpress' ),
-					'B'        => __( 'Variant B', 'ab-testing-wordpress' ),
-					'original' => __( 'Original page', 'ab-testing-wordpress' ),
+					'A'        => __( 'Variant A', 'uplift-ab-testing' ),
+					'B'        => __( 'Variant B', 'uplift-ab-testing' ),
+					'original' => __( 'Original page', 'uplift-ab-testing' ),
 				];
 				$current_label = $label_map[ $current_view ] ?? $current_view;
 
-				$mode_suffix = $has_variant_b ? '' : ' · ' . __( 'baseline', 'ab-testing-wordpress' );
+				$mode_suffix = $has_variant_b ? '' : ' · ' . __( 'baseline', 'uplift-ab-testing' );
 
 				$bar->add_node(
 					[
 						'id'    => 'abtest-preview',
 						'title' => sprintf(
 							/* translators: 1: experiment title, 2: current variant label, 3: mode suffix */
-							esc_html__( 'A/B: %1$s — viewing %2$s%3$s', 'ab-testing-wordpress' ),
+							esc_html__( 'A/B: %1$s — viewing %2$s%3$s', 'uplift-ab-testing' ),
 							esc_html( get_the_title( $experiment ) ),
 							esc_html( $current_label ),
 							esc_html( $mode_suffix )
@@ -406,13 +406,13 @@ final class Router {
 				);
 
 				$variants = [
-					'a' => [ 'label' => __( 'View Variant A', 'ab-testing-wordpress' ), 'view' => 'A' ],
+					'a' => [ 'label' => __( 'View Variant A', 'uplift-ab-testing' ), 'view' => 'A' ],
 				];
 				if ( $has_variant_b ) {
-					$variants['b'] = [ 'label' => __( 'View Variant B', 'ab-testing-wordpress' ), 'view' => 'B' ];
+					$variants['b'] = [ 'label' => __( 'View Variant B', 'uplift-ab-testing' ), 'view' => 'B' ];
 				}
 				if ( $has_underlying ) {
-					$variants['original'] = [ 'label' => __( 'View original page', 'ab-testing-wordpress' ), 'view' => 'original' ];
+					$variants['original'] = [ 'label' => __( 'View original page', 'uplift-ab-testing' ), 'view' => 'original' ];
 				}
 
 				foreach ( $variants as $key => $opt ) {
@@ -433,7 +433,7 @@ final class Router {
 					[
 						'parent' => 'abtest-preview',
 						'id'     => 'abtest-preview-edit',
-						'title'  => esc_html__( 'Edit experiment', 'ab-testing-wordpress' ),
+						'title'  => esc_html__( 'Edit experiment', 'uplift-ab-testing' ),
 						'href'   => admin_url( 'admin.php?page=ab-testing&action=edit&experiment=' . $experiment->ID ),
 					]
 				);

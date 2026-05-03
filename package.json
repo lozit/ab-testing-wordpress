@@ -1,7 +1,7 @@
 {
-  "name": "ab-testing-wordpress",
+  "name": "uplift-ab-testing",
   "version": "0.1.0",
-  "description": "WordPress plugin for A/B testing pages with internal tracking.",
+  "description": "Uplift – A/B Testing: lightweight A/B testing for pages with internal tracking and a 50/50 cookie split.",
   "private": true,
   "scripts": {
     "env:start": "wp-env start",

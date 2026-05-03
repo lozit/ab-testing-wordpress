@@ -44,8 +44,8 @@ final class Experiment {
 
 	public static function register(): void {
 		$labels = [
-			'name'          => __( 'A/B Tests', 'ab-testing-wordpress' ),
-			'singular_name' => __( 'A/B Test', 'ab-testing-wordpress' ),
+			'name'          => __( 'A/B Tests', 'uplift-ab-testing' ),
+			'singular_name' => __( 'A/B Test', 'uplift-ab-testing' ),
 		];
 
 		register_post_type(

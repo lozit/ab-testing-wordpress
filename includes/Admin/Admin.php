@@ -45,8 +45,8 @@ final class Admin {
 
 	public function register_menu(): void {
 		add_menu_page(
-			__( 'A/B Testing', 'ab-testing-wordpress' ),
-			__( 'A/B Tests', 'ab-testing-wordpress' ),
+			__( 'A/B Testing', 'uplift-ab-testing' ),
+			__( 'A/B Tests', 'uplift-ab-testing' ),
 			'manage_options',
 			self::MENU_SLUG,
 			[ $this, 'render' ],
@@ -55,16 +55,16 @@ final class Admin {
 		);
 		add_submenu_page(
 			self::MENU_SLUG,
-			__( 'Import HTML', 'ab-testing-wordpress' ),
-			__( 'Import HTML', 'ab-testing-wordpress' ),
+			__( 'Import HTML', 'uplift-ab-testing' ),
+			__( 'Import HTML', 'uplift-ab-testing' ),
 			'manage_options',
 			self::MENU_SLUG . '&action=import',
 			'__return_null'
 		);
 		add_submenu_page(
 			self::MENU_SLUG,
-			__( 'Settings', 'ab-testing-wordpress' ),
-			__( 'Settings', 'ab-testing-wordpress' ),
+			__( 'Settings', 'uplift-ab-testing' ),
+			__( 'Settings', 'uplift-ab-testing' ),
 			'manage_options',
 			self::MENU_SLUG . '&action=settings',
 			'__return_null'
@@ -149,7 +149,7 @@ final class Admin {
 
 	public function render(): void {
 		if ( ! current_user_can( 'manage_options' ) ) {
-			wp_die( esc_html__( 'You are not allowed to access this page.', 'ab-testing-wordpress' ), 403 );
+			wp_die( esc_html__( 'You are not allowed to access this page.', 'uplift-ab-testing' ), 403 );
 		}
 
 		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only routing param, no mutation
@@ -175,7 +175,7 @@ final class Admin {
 
 	public function handle_save(): void {
 		if ( ! current_user_can( 'manage_options' ) ) {
-			wp_die( esc_html__( 'Forbidden', 'ab-testing-wordpress' ), 403 );
+			wp_die( esc_html__( 'Forbidden', 'uplift-ab-testing' ), 403 );
 		}
 		check_admin_referer( self::NONCE, '_abtest_nonce' );
 
@@ -223,7 +223,7 @@ final class Admin {
 		}
 
 		if ( ! $id || $id < 1 ) {
-			$this->redirect_with_notice( 'error', __( 'Failed to save the experiment.', 'ab-testing-wordpress' ), [ 'action' => 'new' ] );
+			$this->redirect_with_notice( 'error', __( 'Failed to save the experiment.', 'uplift-ab-testing' ), [ 'action' => 'new' ] );
 		}
 
 		$prev_status = $id > 0 ? Experiment::get_status( $id ) : Experiment::STATUS_DRAFT;
@@ -244,7 +244,7 @@ final class Admin {
 			$effective_status   = $baseline_for_transition;
 			$transition_message = sprintf(
 				/* translators: 1: from status, 2: to status */
-				__( 'Status kept at %1$s — transition to %2$s is not allowed. Use the Resume action for paused experiments.', 'ab-testing-wordpress' ),
+				__( 'Status kept at %1$s — transition to %2$s is not allowed. Use the Resume action for paused experiments.', 'uplift-ab-testing' ),
 				$baseline_for_transition,
 				$status
 			);
@@ -259,7 +259,7 @@ final class Admin {
 				$effective_status = Experiment::STATUS_DRAFT;
 				$conflict_message = sprintf(
 					/* translators: %s: title of the running experiment that owns the URL */
-					__( 'Saved as Draft because "%s" is already running on this URL. Pause that experiment first to start this one.', 'ab-testing-wordpress' ),
+					__( 'Saved as Draft because "%s" is already running on this URL. Pause that experiment first to start this one.', 'uplift-ab-testing' ),
 					get_the_title( $conflict )
 				);
 			}
@@ -352,12 +352,12 @@ final class Admin {
 		if ( '' !== $conflict_message ) {
 			$this->redirect_with_notice( 'warning', $conflict_message, [ 'action' => 'edit', 'experiment' => $id ] );
 		}
-		$this->redirect_with_notice( 'success', __( 'Experiment saved.', 'ab-testing-wordpress' ), [ 'action' => 'edit', 'experiment' => $id ] );
+		$this->redirect_with_notice( 'success', __( 'Experiment saved.', 'uplift-ab-testing' ), [ 'action' => 'edit', 'experiment' => $id ] );
 	}
 
 	public function handle_status_change(): void {
 		if ( ! current_user_can( 'manage_options' ) ) {
-			wp_die( esc_html__( 'Forbidden', 'ab-testing-wordpress' ), 403 );
+			wp_die( esc_html__( 'Forbidden', 'uplift-ab-testing' ), 403 );
 		}
 		check_admin_referer( 'abtest_status_change' );
 
@@ -366,7 +366,7 @@ final class Admin {
 		$valid  = [ Experiment::STATUS_RUNNING, Experiment::STATUS_PAUSED, Experiment::STATUS_ENDED, Experiment::STATUS_DRAFT ];
 
 		if ( $id <= 0 || ! in_array( $status, $valid, true ) ) {
-			$this->redirect_with_notice( 'error', __( 'Invalid status change.', 'ab-testing-wordpress' ) );
+			$this->redirect_with_notice( 'error', __( 'Invalid status change.', 'uplift-ab-testing' ) );
 		}
 
 		$prev = Experiment::get_status( $id );
@@ -379,7 +379,7 @@ final class Admin {
 				'warning',
 				sprintf(
 					/* translators: 1: from status, 2: to status */
-					__( 'Transition not allowed: %1$s → %2$s. Use the Resume action to re-run a paused experiment.', 'ab-testing-wordpress' ),
+					__( 'Transition not allowed: %1$s → %2$s. Use the Resume action to re-run a paused experiment.', 'uplift-ab-testing' ),
 					$prev,
 					$status
 				)
@@ -395,7 +395,7 @@ final class Admin {
 					'warning',
 					sprintf(
 						/* translators: %s: title of the experiment that already runs on the same URL */
-						__( 'Cannot start: "%s" is already running on this URL. Pause it first.', 'ab-testing-wordpress' ),
+						__( 'Cannot start: "%s" is already running on this URL. Pause it first.', 'uplift-ab-testing' ),
 						get_the_title( $conflict )
 					)
 				);
@@ -422,7 +422,7 @@ final class Admin {
 			}
 		}
 
-		$this->redirect_with_notice( 'success', __( 'Status updated.', 'ab-testing-wordpress' ) );
+		$this->redirect_with_notice( 'success', __( 'Status updated.', 'uplift-ab-testing' ) );
 	}
 
 	/**
@@ -432,20 +432,20 @@ final class Admin {
 	 */
 	public function handle_resume(): void {
 		if ( ! current_user_can( 'manage_options' ) ) {
-			wp_die( esc_html__( 'Forbidden', 'ab-testing-wordpress' ), 403 );
+			wp_die( esc_html__( 'Forbidden', 'uplift-ab-testing' ), 403 );
 		}
 		check_admin_referer( 'abtest_resume' );
 
 		$id = isset( $_GET['experiment'] ) ? absint( wp_unslash( $_GET['experiment'] ) ) : 0;
 		if ( $id <= 0 || ! get_post( $id ) ) {
-			$this->redirect_with_notice( 'error', __( 'Invalid experiment.', 'ab-testing-wordpress' ) );
+			$this->redirect_with_notice( 'error', __( 'Invalid experiment.', 'uplift-ab-testing' ) );
 		}
 
 		$current_status = Experiment::get_status( $id );
 		if ( Experiment::STATUS_PAUSED !== $current_status ) {
 			$this->redirect_with_notice(
 				'warning',
-				__( 'Resume is only available for paused experiments.', 'ab-testing-wordpress' )
+				__( 'Resume is only available for paused experiments.', 'uplift-ab-testing' )
 			);
 		}
 
@@ -460,7 +460,7 @@ final class Admin {
 				'success',
 				sprintf(
 					/* translators: %d: new experiment ID */
-					__( 'Resumed as a new experiment (#%d, now running). The original keeps its locked dates.', 'ab-testing-wordpress' ),
+					__( 'Resumed as a new experiment (#%d, now running). The original keeps its locked dates.', 'uplift-ab-testing' ),
 					(int) $new_id
 				)
 			);
@@ -470,7 +470,7 @@ final class Admin {
 			'warning',
 			sprintf(
 				/* translators: %d: new experiment ID */
-				__( 'Created a new draft experiment (#%d) because another one is already running on this URL.', 'ab-testing-wordpress' ),
+				__( 'Created a new draft experiment (#%d) because another one is already running on this URL.', 'uplift-ab-testing' ),
 				(int) $new_id
 			)
 		);
@@ -483,18 +483,18 @@ final class Admin {
 	 */
 	public function handle_replace_running(): void {
 		if ( ! current_user_can( 'manage_options' ) ) {
-			wp_die( esc_html__( 'Forbidden', 'ab-testing-wordpress' ), 403 );
+			wp_die( esc_html__( 'Forbidden', 'uplift-ab-testing' ), 403 );
 		}
 		check_admin_referer( 'abtest_replace_running' );
 
 		$id = isset( $_GET['experiment'] ) ? absint( wp_unslash( $_GET['experiment'] ) ) : 0;
 		if ( $id <= 0 || ! get_post( $id ) ) {
-			$this->redirect_with_notice( 'error', __( 'Invalid experiment.', 'ab-testing-wordpress' ) );
+			$this->redirect_with_notice( 'error', __( 'Invalid experiment.', 'uplift-ab-testing' ) );
 		}
 
 		$test_url = Experiment::get_test_url( $id );
 		if ( '' === $test_url ) {
-			$this->redirect_with_notice( 'error', __( 'This experiment has no test URL.', 'ab-testing-wordpress' ) );
+			$this->redirect_with_notice( 'error', __( 'This experiment has no test URL.', 'uplift-ab-testing' ) );
 		}
 
 		$paused_title = '';
@@ -518,7 +518,7 @@ final class Admin {
 				'success',
 				sprintf(
 					/* translators: 1: paused experiment title, 2: started experiment title */
-					__( 'Replaced "%1$s" (paused) with "%2$s" (now running).', 'ab-testing-wordpress' ),
+					__( 'Replaced "%1$s" (paused) with "%2$s" (now running).', 'uplift-ab-testing' ),
 					$paused_title,
 					(string) get_the_title( $id )
 				)
@@ -528,7 +528,7 @@ final class Admin {
 			'success',
 			sprintf(
 				/* translators: %s: started experiment title */
-				__( '"%s" is now running.', 'ab-testing-wordpress' ),
+				__( '"%s" is now running.', 'uplift-ab-testing' ),
 				(string) get_the_title( $id )
 			)
 		);
@@ -536,7 +536,7 @@ final class Admin {
 
 	public function handle_delete(): void {
 		if ( ! current_user_can( 'manage_options' ) ) {
-			wp_die( esc_html__( 'Forbidden', 'ab-testing-wordpress' ), 403 );
+			wp_die( esc_html__( 'Forbidden', 'uplift-ab-testing' ), 403 );
 		}
 		check_admin_referer( 'abtest_delete_experiment' );
 
@@ -544,7 +544,7 @@ final class Admin {
 		if ( $id > 0 ) {
 			wp_delete_post( $id, true );
 		}
-		$this->redirect_with_notice( 'success', __( 'Experiment deleted.', 'ab-testing-wordpress' ) );
+		$this->redirect_with_notice( 'success', __( 'Experiment deleted.', 'uplift-ab-testing' ) );
 	}
 
 	public static function is_valid_test_url( string $path ): bool {
@@ -598,16 +598,16 @@ final class Admin {
 	private function validate_multi( string $title, string $test_url, array $variants, string $goal_type, string $goal_value, string $status, int $editing_id = 0 ): array {
 		$errors = [];
 		if ( '' === $title ) {
-			$errors[] = __( 'Title is required.', 'ab-testing-wordpress' );
+			$errors[] = __( 'Title is required.', 'uplift-ab-testing' );
 		}
 		if ( '' === $test_url ) {
-			$errors[] = __( 'Test URL is required.', 'ab-testing-wordpress' );
+			$errors[] = __( 'Test URL is required.', 'uplift-ab-testing' );
 		} elseif ( ! self::is_valid_test_url( $test_url ) ) {
-			$errors[] = __( 'Test URL must look like /path/ (lowercase, letters, numbers, hyphens, underscores).', 'ab-testing-wordpress' );
+			$errors[] = __( 'Test URL must look like /path/ (lowercase, letters, numbers, hyphens, underscores).', 'uplift-ab-testing' );
 		}
 
 		if ( empty( $variants ) ) {
-			$errors[] = __( 'Variant A is required.', 'ab-testing-wordpress' );
+			$errors[] = __( 'Variant A is required.', 'uplift-ab-testing' );
 		} else {
 			$seen = [];
 			foreach ( $variants as $i => $v ) {
@@ -615,13 +615,13 @@ final class Admin {
 				if ( $pid <= 0 || ! get_post( $pid ) ) {
 					$errors[] = sprintf(
 						/* translators: %s: variant label */
-						__( 'Variant %s page does not exist.', 'ab-testing-wordpress' ),
+						__( 'Variant %s page does not exist.', 'uplift-ab-testing' ),
 						Experiment::VARIANT_LABELS[ $i ] ?? '?'
 					);
 					continue;
 				}
 				if ( isset( $seen[ $pid ] ) ) {
-					$errors[] = __( 'Each variant must use a different page — duplicates detected.', 'ab-testing-wordpress' );
+					$errors[] = __( 'Each variant must use a different page — duplicates detected.', 'uplift-ab-testing' );
 					break;
 				}
 				$seen[ $pid ] = true;
@@ -629,14 +629,14 @@ final class Admin {
 		}
 
 		if ( ! in_array( $goal_type, [ Experiment::GOAL_URL, Experiment::GOAL_SELECTOR ], true ) ) {
-			$errors[] = __( 'Invalid goal type.', 'ab-testing-wordpress' );
+			$errors[] = __( 'Invalid goal type.', 'uplift-ab-testing' );
 		}
 		if ( '' === $goal_value ) {
-			$errors[] = __( 'Goal value is required.', 'ab-testing-wordpress' );
+			$errors[] = __( 'Goal value is required.', 'uplift-ab-testing' );
 		}
 		$valid_status = [ Experiment::STATUS_DRAFT, Experiment::STATUS_RUNNING, Experiment::STATUS_PAUSED, Experiment::STATUS_ENDED ];
 		if ( ! in_array( $status, $valid_status, true ) ) {
-			$errors[] = __( 'Invalid status.', 'ab-testing-wordpress' );
+			$errors[] = __( 'Invalid status.', 'uplift-ab-testing' );
 		}
 		return $errors;
 	}
@@ -645,36 +645,36 @@ final class Admin {
 	private function validate( string $title, string $test_url, int $control_id, int $variant_id, string $goal_type, string $goal_value, string $status, int $editing_id = 0 ): array {
 		$errors = [];
 		if ( '' === $title ) {
-			$errors[] = __( 'Title is required.', 'ab-testing-wordpress' );
+			$errors[] = __( 'Title is required.', 'uplift-ab-testing' );
 		}
 		if ( '' === $test_url ) {
-			$errors[] = __( 'Test URL is required.', 'ab-testing-wordpress' );
+			$errors[] = __( 'Test URL is required.', 'uplift-ab-testing' );
 		} elseif ( ! self::is_valid_test_url( $test_url ) ) {
-			$errors[] = __( 'Test URL must look like /path/ (lowercase, letters, numbers, hyphens, underscores).', 'ab-testing-wordpress' );
+			$errors[] = __( 'Test URL must look like /path/ (lowercase, letters, numbers, hyphens, underscores).', 'uplift-ab-testing' );
 		}
 		// Note: URL uniqueness against another running experiment is NOT a hard error here.
 		// `handle_save` and `handle_status_change` softly downgrade the requested status to
 		// `draft` instead, so the user's work is never lost on conflict.
 		if ( $control_id <= 0 || ! get_post( $control_id ) ) {
-			$errors[] = __( 'Variant A is required.', 'ab-testing-wordpress' );
+			$errors[] = __( 'Variant A is required.', 'uplift-ab-testing' );
 		}
 		// Variant B is optional — leaving it empty puts the experiment in "baseline" mode
 		// where everyone sees Variant A. Only validate if a value was provided.
 		if ( $variant_id > 0 && ! get_post( $variant_id ) ) {
-			$errors[] = __( 'Variant B page does not exist.', 'ab-testing-wordpress' );
+			$errors[] = __( 'Variant B page does not exist.', 'uplift-ab-testing' );
 		}
 		if ( $variant_id > 0 && $control_id > 0 && $control_id === $variant_id ) {
-			$errors[] = __( 'Variant A and Variant B must be different posts.', 'ab-testing-wordpress' );
+			$errors[] = __( 'Variant A and Variant B must be different posts.', 'uplift-ab-testing' );
 		}
 		if ( ! in_array( $goal_type, [ Experiment::GOAL_URL, Experiment::GOAL_SELECTOR ], true ) ) {
-			$errors[] = __( 'Invalid goal type.', 'ab-testing-wordpress' );
+			$errors[] = __( 'Invalid goal type.', 'uplift-ab-testing' );
 		}
 		if ( '' === $goal_value ) {
-			$errors[] = __( 'Goal value is required.', 'ab-testing-wordpress' );
+			$errors[] = __( 'Goal value is required.', 'uplift-ab-testing' );
 		}
 		$valid_status = [ Experiment::STATUS_DRAFT, Experiment::STATUS_RUNNING, Experiment::STATUS_PAUSED, Experiment::STATUS_ENDED ];
 		if ( ! in_array( $status, $valid_status, true ) ) {
-			$errors[] = __( 'Invalid status.', 'ab-testing-wordpress' );
+			$errors[] = __( 'Invalid status.', 'uplift-ab-testing' );
 		}
 		return $errors;
 	}

@@ -1,4 +1,4 @@
-# A/B Testing for WordPress
+# Uplift – A/B Testing
 
 [![CI](https://github.com/lozit/ab-testing-wordpress/actions/workflows/ci.yml/badge.svg)](https://github.com/lozit/ab-testing-wordpress/actions/workflows/ci.yml)
 [![Security Audit](https://img.shields.io/badge/security%20audit-10%2F10-brightgreen)](./docs/security/latest.md)
@@ -10,7 +10,7 @@
   <img src="./.wordpress-org/screenshot-1.png" alt="A/B Tests admin list — experiments grouped by URL with per-variant stats and winner badges" width="800">
 </p>
 
-A self-hosted A/B testing plugin for WordPress. Test landing pages, compare conversion rates, and pipe events to your analytics stack — all on your own database, no third-party dependency required.
+Uplift is a self-hosted A/B testing plugin for WordPress. Test landing pages, compare conversion rates, and pipe events to your analytics stack — all on your own database, no third-party dependency required.
 
 Built around three core ideas:
 
@@ -153,7 +153,7 @@ The plugin is designed to be conservative by default — no raw IP, no User-Agen
 | `visitor_hash` | First 16 hex chars (64 bits) of `sha256(IP + '|' + UA + '|' + wp_salt('auth'))` — non-reversible, single-site, salt-rotated; **no raw IP or UA stored**. Truncation reduces brute-force surface while keeping dedup statistically safe (collision probability < 3e-8 at 1M visitors/exp). |
 | Third parties | None by default. GA4 / Webhooks integrations are off until configured. |
 
-A native privacy-policy snippet is registered with WordPress on activation — find it under **Settings → Privacy → Policy Guide → AB Testing WordPress**, ready to paste into your privacy policy.
+A native privacy-policy snippet is registered with WordPress on activation — find it under **Settings → Privacy → Policy Guide → Uplift – A/B Testing**, ready to paste into your privacy policy.
 
 ### Right to erasure
 
@@ -325,8 +325,8 @@ Used internally by the GA4 and Webhook integrations. Your own code can subscribe
 ## Architecture
 
 ```
-ab-testing-wordpress/
-├── ab-testing-wordpress.php       # Bootstrap (plugin header, activation hook, autoloader)
+uplift-ab-testing/
+├── uplift-ab-testing.php          # Bootstrap (plugin header, activation hook, autoloader)
 ├── includes/
 │   ├── Plugin.php                  # Orchestrator, schema migration, components registration
 │   ├── Schema.php                  # wp_abtest_events table (dbDelta)

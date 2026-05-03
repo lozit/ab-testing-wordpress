@@ -101,7 +101,7 @@ Files: `includes/Scheduler.php`, `includes/Watcher.php`.
 - Cron handlers `tick()` / `scan()` trust no external input — everything comes from the DB or filesystem we control?
 
 ### H. Direct file access + bootstrap
-Files: `includes/*.php`, `ab-testing-wordpress.php`.
+Files: `includes/*.php`, `uplift-ab-testing.php`.
 
 - Do all PHP files start with `defined('ABSPATH') || exit;`?
 - No side-effects at require in the main file (only hook registrations)?
@@ -176,7 +176,7 @@ Conclude with:
 
 Read the current version:
 ```bash
-grep "ABTEST_VERSION" ab-testing-wordpress.php | grep -oE "[0-9]+\.[0-9]+\.[0-9]+"
+grep "ABTEST_VERSION" uplift-ab-testing.php | grep -oE "[0-9]+\.[0-9]+\.[0-9]+"
 ```
 
 Write the report into **TWO** files:

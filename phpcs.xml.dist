@@ -1,8 +1,8 @@
 <?xml version="1.0"?>
-<ruleset name="AbTesting WordPress">
-    <description>WPCS ruleset for the AB Testing WordPress plugin — relaxed cosmetic rules, strict security.</description>
+<ruleset name="Uplift A/B Testing">
+    <description>WPCS ruleset for the Uplift – A/B Testing plugin — relaxed cosmetic rules, strict security.</description>
 
-    <file>./ab-testing-wordpress.php</file>
+    <file>./uplift-ab-testing.php</file>
     <file>./includes</file>
     <file>./uninstall.php</file>
 
@@ -59,7 +59,7 @@
     <rule ref="WordPress.WP.I18n">
         <properties>
             <property name="text_domain" type="array">
-                <element value="ab-testing-wordpress"/>
+                <element value="uplift-ab-testing"/>
             </property>
         </properties>
     </rule>

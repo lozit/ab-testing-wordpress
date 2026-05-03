@@ -1,15 +1,15 @@
 <?php
 /**
- * Plugin Name:       AB Testing WordPress
+ * Plugin Name:       Uplift – A/B Testing
  * Plugin URI:        https://github.com/lozit/ab-testing-wordpress
- * Description:       Lightweight A/B testing for WordPress pages with internal tracking and a 50/50 cookie-based split.
- * Version:           0.11.3
+ * Description:       Lightweight A/B testing for pages: internal tracking, persistent-cookie 50/50 split, GDPR-friendly. No third-party dependency.
+ * Version:           0.12.0
  * Requires at least: 6.0
  * Requires PHP:      8.1
  * Author:            Guillaume Ferrari
  * License:           GPL-2.0-or-later
  * License URI:       https://www.gnu.org/licenses/gpl-2.0.html
- * Text Domain:       ab-testing-wordpress
+ * Text Domain:       uplift-ab-testing
  * Domain Path:       /languages
  *
  * @package Abtest
@@ -17,7 +17,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'ABTEST_VERSION', '0.11.3' );
+define( 'ABTEST_VERSION', '0.12.0' );
 define( 'ABTEST_DB_VERSION', '1.3.0' );
 define( 'ABTEST_PLUGIN_FILE', __FILE__ );
 define( 'ABTEST_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );

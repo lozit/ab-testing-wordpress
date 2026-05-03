@@ -11,7 +11,7 @@ Applies to: every `.php` file in the plugin.
 - CSS / JS handles: `abtest-xxx`
 - Tables: `{$wpdb->prefix}abtest_xxx`
 - Cookies: `abtest_xxx`
-- Text domain: `ab-testing-wordpress` (= plugin slug)
+- Text domain: `uplift-ab-testing` (= plugin slug)
 
 ## PSR-4 namespace
 Root namespace: `Abtest\` → mapped to `includes/`.
@@ -25,23 +25,23 @@ Class name = file name (e.g. `Abtest\Router` → `includes/Router.php`).
 - Prefer class methods to closures (testable + un-registerable)
 
 ## i18n
-- Every user-facing string: `__( 'Text', 'ab-testing-wordpress' )`
-- Direct echo: `esc_html_e( 'Text', 'ab-testing-wordpress' )`
-- With variables: `sprintf( __( '%d conversions', 'ab-testing-wordpress' ), $n )`
-- Load: `load_plugin_textdomain( 'ab-testing-wordpress', false, dirname( plugin_basename( __FILE__ ) ) . '/languages' )` on the `init` hook
+- Every user-facing string: `__( 'Text', 'uplift-ab-testing' )`
+- Direct echo: `esc_html_e( 'Text', 'uplift-ab-testing' )`
+- With variables: `sprintf( __( '%d conversions', 'uplift-ab-testing' ), $n )`
+- Load: `load_plugin_textdomain( 'uplift-ab-testing', false, dirname( plugin_basename( __FILE__ ) ) . '/languages' )` on the `init` hook
 - **Source strings are always in English.** French (or any other language) translations live in `languages/*.po` if anyone provides them.
 
 ## Main file headers
 ```php
 <?php
 /**
- * Plugin Name: AB Testing WordPress
+ * Plugin Name: Uplift – A/B Testing
  * Description: Simple A/B testing, internal tracking, 50/50 cookie split.
  * Version: 0.1.0
  * Requires at least: 6.0
  * Requires PHP: 8.1
  * Author: Guillaume Ferrari
- * Text Domain: ab-testing-wordpress
+ * Text Domain: uplift-ab-testing
  * Domain Path: /languages
  * License: GPL-2.0-or-later
  */
