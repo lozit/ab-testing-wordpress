@@ -6,6 +6,10 @@
 [![PHP 8.1+](https://img.shields.io/badge/PHP-8.1%2B-777BB4.svg)](#)
 [![WordPress 6.0+](https://img.shields.io/badge/WordPress-6.0%2B-21759B.svg)](#)
 
+<p align="center">
+  <img src="./.wordpress-org/screenshot-1.png" alt="A/B Tests admin list — experiments grouped by URL with per-variant stats and winner badges" width="800">
+</p>
+
 A self-hosted A/B testing plugin for WordPress. Test landing pages, compare conversion rates, and pipe events to your analytics stack — all on your own database, no third-party dependency required.
 
 Built around three core ideas:
@@ -51,6 +55,11 @@ Built around three core ideas:
 - **Kinsta** detection with admin notice linking to MyKinsta Cache Bypass UI
 
 ### HTML import & Blank Canvas
+
+<p align="center">
+  <img src="./.wordpress-org/screenshot-2.png" alt="Import HTML page — drag-and-drop upload (.html / .htm / .zip) plus the Watch Directory panel for IDE sync" width="700">
+</p>
+
 - Upload a complete HTML document (`.html`/`.htm`) → creates a page rendered byte-perfect with **zero WordPress wrapper** (no theme chrome, no `wp_head`)
 - **`.zip` upload with assets** — bundle CSS/JS/images alongside `index.html`; the importer extracts to `wp-content/uploads/abtest-templates/{slug}/`, rewrites relative `href`/`src`/`srcset`/`url()` to absolute URLs, and hardens against path traversal (extension allowlist, no `../`, no dotfiles)
 - **Watch directory** — drop or edit `index.html` files in `wp-content/uploads/abtest-templates/{slug}/` (via your IDE, SFTP, Dropbox, iCloud Drive…); WP-Cron syncs changed files into pages every 5 minutes (or hit the *Scan now* button). Hash-based change detection. Additive only — never deletes pages.
@@ -64,6 +73,14 @@ Built around three core ideas:
 - Shared across every experiment on that URL
 
 ### Integrations
+
+<p align="center">
+  <img src="./.wordpress-org/screenshot-3.png" alt="Settings — privacy / consent gating (GDPR) and Google Analytics 4 Measurement Protocol integration" width="700">
+</p>
+<p align="center">
+  <img src="./.wordpress-org/screenshot-4.png" alt="Settings — generic webhooks (Zapier / Make / n8n / Slack) with optional HMAC signature, and the REST API documentation" width="700">
+</p>
+
 - **Google Analytics 4** via Measurement Protocol (server-side, fire-and-forget)
 - **Generic webhooks** — POST every event to any HTTP endpoint, configurable per webhook (Zapier, Make, n8n, Slack, Mixpanel, Segment, custom data warehouse). Optional HMAC SHA256 signature for endpoint authenticity.
 - **REST API** — `GET /wp-json/abtest/v1/stats` authenticated via WP Application Passwords. Pull stats from external dashboards, n8n, Make, Pipedream.

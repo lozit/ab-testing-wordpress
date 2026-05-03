@@ -107,6 +107,13 @@ No. Logged-in users with `edit_posts` capability are bypassed and always see the
 = Does it work with WooCommerce / Gutenberg blocks? =
 v1 only swaps the entire page (the variant must be a separate post). Block-level and product-level testing are on the roadmap.
 
+== Screenshots ==
+
+1. A/B Tests admin list — experiments grouped by URL with per-variant stats and winner badges
+2. Import HTML page — drag-and-drop upload (.html / .htm / .zip with assets) plus the Watch Directory panel for IDE sync
+3. Settings — privacy / consent gating (GDPR) and Google Analytics 4 Measurement Protocol integration
+4. Settings — generic webhooks (Zapier / Make / n8n / Slack) and REST API documentation
+
 == Changelog ==
 
 = 0.11.0 =
